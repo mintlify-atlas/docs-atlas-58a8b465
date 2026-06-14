@@ -40,7 +40,7 @@ The `SETTING_PBR_MATERIAL` option controls how Alpha Piscium sources material da
 
 LabPBR is the community-standard format for encoding PBR material data inside Minecraft resource packs. It stores additional material information in the otherwise unused color channels of specially named textures:
 
-- `_n` textures (normal maps) — encode surface normals in the XYZ channels and ambient occlusion in the alpha channel.
+- `_n` textures (normal maps) — encode surface normals in the XY channels, ambient occlusion in the blue channel, and a heightmap in the alpha channel.
 - `_s` textures (specular maps) — encode roughness, metalness, emissive intensity, porosity, and subsurface scattering data packed into RGBA channels.
 
 Because LabPBR is a shared standard, a pack that supports it will work with any LabPBR-compatible shader, including Alpha Piscium. For full specification details, see the [LabPBR Material Standard](https://github.com/rre36/lab-pbr/wiki).

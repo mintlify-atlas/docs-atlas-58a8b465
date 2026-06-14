@@ -1,7 +1,7 @@
 ---
-title: "Global Illumination and Denoiser Configuration"
+title: "Global Illumination and ReBLUR Denoiser Configuration"
 sidebarTitle: "Global Illumination"
-description: "Tune Alpha Piscium's ReSTIR screen-space global illumination quality, spatial and temporal reuse, and ReBLUR denoiser settings."
+description: "Tune Alpha Piscium's ReSTIR screen-space global illumination, spatial and temporal reuse sample counts, and ReBLUR denoiser settings."
 ---
 
 Alpha Piscium's global illumination pipeline uses **ReSTIR** (Reservoir-based SpatioTemporal Importance Resampling) to compute high-quality indirect lighting. Each frame, candidate light paths are sampled via screen-space ray tracing, then evaluated against a reservoir that accumulates and resamples paths across both neighboring pixels (spatial reuse) and previous frames (temporal reuse). This approach produces dramatically more light paths per pixel than naive Monte Carlo sampling at the same cost. The resulting noisy signal is then cleaned up by the **ReBLUR** denoiser, which applies spatial filtering, temporal accumulation, and a fast history buffer to produce a stable, smooth indirect lighting signal with minimal lag and ghosting.

@@ -120,14 +120,14 @@ Available values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`.
 
 ### Cloud Upscale Factor
 
-If you want to keep volumetric clouds but reduce their cost, `SETTING_CLOUDS_LOW_UPSCALE_FACTOR` renders clouds at a lower internal resolution and upscales the result. The default is `2.0 x`. Higher upscale factors trade cloud detail for performance.
+If you want to keep volumetric clouds but reduce their cost, `SETTING_CLOUDS_LOW_UPSCALE_FACTOR` renders clouds at a lower internal resolution and upscales the result. The default is `2`. Higher upscale factor values trade cloud detail for performance.
 
 | Value | Notes |
 |---|---|
-| `1.0 x` | Native resolution. Highest quality. |
-| `2.0 x` | Default. Good balance. |
-| `3.0 x` | Noticeable quality reduction but meaningful savings. |
-| `4.0 x` | Maximum upscale. |
+| `0` | Native resolution. Highest quality. |
+| `2` | Default. Good balance. |
+| `4` | Noticeable quality reduction but meaningful savings. |
+| `6` | Maximum upscale. |
 
 ## Post Processing
 

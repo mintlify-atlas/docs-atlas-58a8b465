@@ -1,5 +1,5 @@
 ---
-title: "Alpha Piscium Rendering Pipeline Architecture"
+title: "Alpha Piscium Shaderpack Rendering Pipeline Stages"
 sidebarTitle: "Rendering Pipeline"
 description: "An overview of Alpha Piscium's multi-stage rendering pipeline: setup, shadows, G-buffers, composite passes for GI, atmosphere, clouds, and final output."
 ---
@@ -36,7 +36,7 @@ Alpha Piscium's rendering pipeline is organized as a sequence of discrete GPU st
   - **`begin1` / `begin1_a` / `begin1_b`** — Render the atmosphere look-up tables: transmittance, sky view, and multi-scattering LUTs that feed the atmospheric scattering system. Sub-passes `_a` and `_b` handle slice-by-slice updates.
   - **`begin2` / `begin2_a` / `begin2_b` / `begin2_c`** — Update the cloud ambient LUT for the cumulus cloud layer, integrating sky irradiance for cloud self-shadowing.
   - **`begin3` / `begin3_a`** — Update the global data buffer (`UpdateGlobalData.comp.glsl`) with per-frame values: camera position, sun/moon direction, time-of-day, TAA jitter, and previous-frame matrices.
-  - **`begin4` / `begin4_a`** — Clear per-frame screen-space buffers (`ClearScreen1–3`) and reset the environment probe accumulation target (`ClearEnvProbe`).
+  - **`begin4` / `begin4_a`** — Clear per-frame screen-space buffers and reset the environment probe accumulation target.
   - **`begin5`** — Clear and prepare the RTWSM importance map buffer (`ClearRTWSM`) so it is ready to receive importance data during geometry rendering.
   - **`begin6`** *(Voxy only, conditionally enabled)* — Perform any Voxy-specific per-frame initialization for distant terrain integration.
 
@@ -83,7 +83,7 @@ Alpha Piscium's rendering pipeline is organized as a sequence of discrete GPU st
       `gbuffers_hand` — the player's held item and arms, rendered separately with a modified depth range.
     </Card>
     <Card title="Sky & Misc" icon="sun">
-      `gbuffers_skybasic`, `gbuffers_skytextured`, `gbuffers_textured`, `gbuffers_textured_lit`, `gbuffers_spidereyes` — sky dome and miscellaneous lit geometry.
+      `gbuffers_skybasic`, `gbuffers_skytextured`, `gbuffers_clouds`, `gbuffers_basic`, `gbuffers_textured`, `gbuffers_textured_lit`, `gbuffers_spidereyes` — sky dome and miscellaneous lit geometry.
     </Card>
   </CardGroup>
 
@@ -100,130 +100,169 @@ Alpha Piscium's rendering pipeline is organized as a sequence of discrete GPU st
 
   The composite stage is the heart of Alpha Piscium's rendering. All 85 passes are compute shaders, enabling flexible memory access patterns and efficient workgroup tiling. The passes are ordered so that later passes can consume the outputs of earlier ones.
 
-  <Accordion title="Voxy/DH Merge (composite1–2)">
+  <Accordion title="Voxy Merge (composite1)">
     When Voxy support is enabled (`composite1` is conditionally active), the Voxy LOD colour and depth data are merged into the main screen-space buffers (`VoxyMerge.glsl`). This blends distant Voxy geometry seamlessly with the vanilla render.
   </Accordion>
 
-  <Accordion title="Screen Pixel Size Evaluation (composite3)">
+  <Accordion title="HiZ Generation (composite2)">
+    `HiZGen` builds a hierarchical Z (depth) pyramid from the current G-buffer depth. Each level stores the minimum depth in a 2×2 footprint, enabling efficient ray-marching in the screen-space GI tracing passes.
+  </Accordion>
+
+  <Accordion title="GI Denoiser Edge Classification & Dilation (composite3–4)">
+    `GIDenoiserEdgeClassification` and `GIDenoiserEdgeDilation` build an edge mask from the G-buffer that prevents the spatial denoiser blur from crossing geometric discontinuities such as object silhouettes and depth transitions.
+  </Accordion>
+
+  <Accordion title="GI Denoiser Reproject (composite5)">
+    `GIDenoiserReproject` reprojects the previous denoised GI frame using current-frame motion vectors and accumulates temporal history per pixel.
+  </Accordion>
+
+  <Accordion title="Environment Probe Update — Reproject & Dilate (composite6–7)">
+    `EnvProbeUpdate1ReprojectScatter` reprojects the previous frame's environment probe and scatters new sky radiance. `EnvProbeUpdate2ReprojectDilate` (pass 1) dilates valid probe texels to fill gaps from reprojection.
+  </Accordion>
+
+  <Accordion title="Shadow Sample Setup (composite8)">
+    `ShadowSampleSetup` precomputes per-pixel shadow UVs and blocker distances in RTWSM-warped shadow space, preparing data for the shadow sampling passes later in the pipeline.
+  </Accordion>
+
+  <Accordion title="Screen Pixel Size Evaluation (composite9)">
     `EvaluateScreenPixelSize` computes per-pixel screen-space footprint information used later for adaptive sampling decisions in the GI and shadow systems.
   </Accordion>
 
-  <Accordion title="Water Caustics (composite9–12)">
+  <Accordion title="Water Caustics (composite10–12)">
     Enabled only when `SETTING_WATER_CAUSTICS` is defined. Three passes implement a photon-tracing approach:
-    1. **composite9** — `CausticsPhotonTrace`: traces photons from the sun through the animated water surface.
-    2. **composite10/11** — `CausticsRemap`: remaps photon landing positions into screen space.
+    1. **composite10** — `CausticsPhotonTrace`: traces photons from the sun through the animated water surface.
+    2. **composite11** — `CausticsRemap`: remaps photon landing positions into screen space.
     3. **composite12** — `CausticsFilter`: filters the photon splat buffer to produce smooth caustic patterns.
   </Accordion>
 
   <Accordion title="Volumetric Clouds (composite13–14)">
-    Enabled when `SETTING_CLOUDS_CU` is defined. These passes render the cumulus cloud layer using the Nubis technique, with full physically-based in-scattering and self-shadowing. Cirrus clouds at high altitude are handled as a separate thin-layer pass.
+    Enabled when `SETTING_CLOUDS_CU` is defined. `RenderVolumetric` (composite13) renders the cumulus cloud layer using the Nubis technique, with physically-based in-scattering and self-shadowing. `Accum` (composite14) accumulates and upscales the cloud render.
   </Accordion>
 
-  <Accordion title="Environment Probe Update (composite15–18)">
-    The environment probe provides distant and sky irradiance for GI fallback in regions with insufficient screen-space coverage. Four sub-passes:
-    1. **Reproject & Scatter** — reproject the previous frame's probe and scatter new sky radiance.
-    2. **Dilate** — dilate valid probe texels to fill gaps.
-    3. **Gather** — gather irradiance into spherical harmonics or cubemap faces.
-    4. **Project Current** — project the result for use this frame.
+  <Accordion title="Shadow Sampling — SSS (composite15)">
+    `ShadowSampleSSS` applies PCSS filtering and subsurface scattering shadow transmission (conditionally enabled for high SST step counts).
   </Accordion>
 
-  <Accordion title="HiZ Generation (composite19–21)">
-    `HiZGen` builds a hierarchical Z (depth) pyramid from the current G-buffer depth. Each level stores the minimum depth in a 2×2 footprint, enabling efficient ray-marching in the screen-space GI tracing passes.
+  <Accordion title="Sky Composite (composite16)">
+    `SkyComposite` blends the rendered sky (using the precomputed sky-view LUT from the begin passes) into pixels not covered by opaque geometry, and handles the sun disc and moon.
+  </Accordion>
+
+  <Accordion title="Shadow Sampling — Main (composite17)">
+    `ShadowSample` applies PCSS percentage-closer filtering across the computed penumbra radius to produce soft, contact-hardening shadows.
+  </Accordion>
+
+  <Accordion title="Environment Probe Update — Dilate Pass 2 (composite18)">
+    A second dilation pass (`EnvProbeUpdate2ReprojectDilate`, pass 2) continues filling probe gaps before the gather step.
+  </Accordion>
+
+  <Accordion title="Direct Lighting (composite19)">
+    `DirectLighting` evaluates direct sun/moon/sky illumination for every G-buffer pixel, incorporating the shadow visibility computed in the RTWSM/PCSS passes, the atmospheric transmittance from the sky LUTs, and PBR specular/diffuse BRDFs.
+  </Accordion>
+
+  <Accordion title="Environment Probe Update — Gather & Project (composite20–21)">
+    `EnvProbeUpdate3ReprojectGather` gathers irradiance into the environment probe. `EnvProbeUpdate4ProjectCurrent` projects the result for use this frame, providing a temporally-stable sky irradiance fallback for pixels with insufficient GI screen-space history.
   </Accordion>
 
   <Accordion title="DoF Auto-Focus (composite22)">
     Conditionally active when DoF is enabled and manual focus is off. `DOFFocus` reads the depth at the screen centre and feeds an exponentially smoothed focal distance to the DoF pass later in the pipeline.
   </Accordion>
 
-  <Accordion title="Shadow Sampling — RTWSM + PCSS (composite23–25)">
-    Three passes transform G-buffer positions into RTWSM-warped shadow space and evaluate visibility:
-    - **composite23** — `ShadowSampleSetup`: precomputes per-pixel shadow UVs and blocker distances.
-    - **composite24/25** — `ShadowSample` and `ShadowSampleSSS`: apply PCSS filtering and subsurface scattering shadow transmission (conditionally enabled for high SST step counts).
+  <Accordion title="ReSTIR GI — Initial Sample (composite23–25)">
+    The first stage of ReSTIR SSGI:
+    - **composite23** — `GIReSTIRInitalSampleRayGenTrace`: generates candidate ray directions and traces them using the HiZ pyramid.
+    - **composite24** — `GIReSTIRInitalSampleRaySort`: sorts rays for improved GPU coherence.
+    - **composite25** — `GIReSTIRInitalSampleRayFinishTrace`: completes ray tracing after the sort.
   </Accordion>
 
-  <Accordion title="ReSTIR Global Illumination — Initial Sample (composite26–27)">
-    The first stage of ReSTIR SSGI. `GIReSTIRInitalSampleRayGenTrace` generates candidate ray directions and traces them using the HiZ pyramid. An optional ray-sort pass (`composite27`, `GIReSTIRDuplicationMapDecorrelate`) reduces structured noise via duplication-map decorrelation.
-  </Accordion>
-
-  <Accordion title="ReSTIR GI — Temporal Reuse (composite26 region)">
-    `GIReSTIRTemporalReuse` reprojects the previous frame's reservoirs onto the current frame and merges them with the new initial samples, up to the configured temporal reuse limit.
+  <Accordion title="ReSTIR GI — Temporal Reuse & Decorrelate (composite26–27)">
+    `GIReSTIRTemporalReuse` (composite26) reprojects the previous frame's reservoirs onto the current frame and merges them with the new initial samples, up to the configured temporal reuse limit. `GIReSTIRDuplicationMapDecorrelate` (composite27) reduces structured noise via duplication-map decorrelation.
   </Accordion>
 
   <Accordion title="ReSTIR GI — Spatial Reuse (composite28–35)">
-    Up to eight spatial reuse passes (`composite28`–`composite35`), each running `GIReSTIRPairedSpatialReuse` or `GIReSTIRSpatialReuseTrace`, gather samples from neighbouring pixels. The number of active passes is controlled by `SETTING_GI_SPATIAL_REUSE_COUNT`.
+    Eight spatial reuse passes (`composite28`–`composite35`), each running `GIReSTIRPairedSpatialReuse`, gather samples from neighbouring pixels. The number of active passes is controlled by `SETTING_GI_SPATIAL_REUSE_COUNT`.
   </Accordion>
 
-  <Accordion title="ReSTIR GI — Shading (composite36–37)">
-    `GIReSTIRPairedSpatialShade` evaluates the final weighted GI contribution from the merged reservoir and writes the indirect irradiance buffer.
+  <Accordion title="ReSTIR GI — Shading & Ray Sort (composite36–38)">
+    `GIReSTIRPairedSpatialShade` (composite36) evaluates the final weighted GI contribution from the merged reservoir and writes the indirect irradiance buffer. `GIReSTIRSpatialReuseRaySort` (composite37) and `GIReSTIRSpatialReuseTrace` (composite38) perform an additional ray sort and trace pass for spatial reuse quality.
   </Accordion>
 
-  <Accordion title="GI Denoising — ReBLUR (composite38–45)">
+  <Accordion title="GI Denoising — ReBLUR (composite39–44)">
     The ReBLUR denoiser cleans the noisy raw ReSTIR output across several passes:
-    - **Reproject** (`GIDenoiserReproject`) — reprojects the previous denoised frame.
-    - **Accumulate** (`GIDenoiserAccum`) — blends current and history with adaptive weighting.
+    - **Accumulate** (`GIDenoiserAccum`, composite39) — blends current and history with adaptive weighting.
     - **Anti-Firefly** (`GIDenoiserAntiFireFly`, composite40, optional) — suppresses bright outlier samples via RCRS.
-    - **GI Mip / Edge Classification / Edge Dilation** — build auxiliary data structures for the spatial filter.
+    - **GI Mip** (`GIDenoiserGIMip`, composite41) — builds auxiliary mip data for the spatial filter.
+    - **History Fix** (`GIDenoiserHistoryFix`, composite42) — repairs disoccluded regions that lack valid temporal history.
     - **Blur** (`GIDenoiserBlur`, composite43) and **Post-Blur** (`GIDenoiserPostBlur`, composite44) — apply the main and secondary spatial blur passes (optional).
-    - **History Fix** (`GIDenoiserHistoryFix`) — repairs disoccluded regions that lack valid temporal history.
   </Accordion>
 
-  <Accordion title="Atmospheric Scattering — Epipolar (composite46–51)">
+  <Accordion title="Volumetrics Depth Layers (composite46)">
+    `VolumetricsDepthLayers` computes the depth layering needed for local volumetric fog and atmospheric in-scattering integration.
+  </Accordion>
+
+  <Accordion title="Atmospheric Scattering — Epipolar (composite47–48)">
     Volumetric light scattering through the atmosphere using epipolar sampling:
-    1. Divide the screen into epipolar lines emanating from the sun's screen-space position.
-    2. **composite47** — `EpipolarScatteringAir`: integrate in-scattering along air segments.
-    3. **composite48** — `EpipolarScatteringWater`: integrate in-scattering through water volumes.
-    4. Additional passes unwarp the epipolar buffer back to screen space and composite the scattered radiance.
+    - **composite47** — `EpipolarScatteringAir`: integrates in-scattering along air segments emanating from the sun's screen-space position.
+    - **composite48** — `EpipolarScatteringWater`: integrates in-scattering through water volumes.
   </Accordion>
 
-  <Accordion title="Volumetrics Depth Layers & Local Composite (composite52–53)">
-    `VolumetricsDepthLayers` computes the depth layering needed for local volumetric fog. `VolumetricLocalCompositeBreakFix` (`composite53`, optional) corrects depth-break artifacts at geometry edges when `SETTING_DEPTH_BREAK_CORRECTION` is enabled.
-  </Accordion>
-
-  <Accordion title="Direct Lighting (composite54–55)">
-    `DirectLighting` evaluates direct sun/moon/sky illumination for every G-buffer pixel, incorporating the shadow visibility computed in the RTWSM/PCSS passes, the atmospheric transmittance from the sky LUTs, and PBR specular/diffuse BRDFs.
-  </Accordion>
-
-  <Accordion title="Translucent Compositing (composite56–58)">
+  <Accordion title="Translucent Compositing (composite49–51)">
     Three passes composite the translucent geometry layer (water, glass, stained glass) over the opaque scene:
-    - `TranslucentSST` — applies screen-space tracing for refraction beneath translucent surfaces.
-    - `TranslucentComposite` and `TranslucentBackComposite` — blend back-face and front-face translucent contributions with absorption-based tinting.
+    - `TranslucentBackComposite` (composite49) — blends back-face translucent contributions.
+    - `TranslucentSST` (composite50) — applies screen-space tracing for refraction beneath translucent surfaces.
+    - `TranslucentComposite` (composite51) — blends front-face translucent contributions with absorption-based tinting.
   </Accordion>
 
-  <Accordion title="Sky Composite (composite59)">
-    `SkyComposite` blends the rendered sky (using the precomputed sky-view LUT from the begin passes) into pixels not covered by opaque geometry, and handles the sun disc and moon.
+  <Accordion title="RTWSM Importance Map Collapse (composite52)">
+    `IMapCollapse` collapses the RTWSM importance map built during geometry rendering, preparing the warp function for the next frame's shadow pass.
   </Accordion>
 
-  <Accordion title="Overlay Composite (composite60)">
+  <Accordion title="Volumetrics Local Composite Break Fix (composite53)">
+    `VolumetricLocalCompositeBreakFix` (optional, `SETTING_DEPTH_BREAK_CORRECTION`) corrects depth-break artifacts at geometry edges in the volumetric local composite.
+  </Accordion>
+
+  <Accordion title="Depth of Field — Prepare (composite54)">
+    Active when `SETTING_DOF` is defined. `DOFPrepare` tiles the depth buffer and classifies pixels as in-focus or bokeh candidates for the physically-based circle-of-confusion blur using the focal distance from the auto-focus pass (composite22) or a user-set manual value.
+  </Accordion>
+
+  <Accordion title="TAA — Prepare & Resolve (composite55–56)">
+    Temporal Anti-Aliasing runs in two compute passes:
+    1. **TAAPrepare** (`TAAPrepare.comp.glsl`, composite55) — computes motion vectors and prepares neighbourhood colour clamping bounds.
+    2. **TAAResolve** (`TAAResolve.comp.glsl`, composite56) — reprojects the previous accumulated frame, blends with the current frame using adaptive clamping, and outputs the resolved TAA result.
+  </Accordion>
+
+  <Accordion title="FXAA & RCAS Sharpening (composite57–58)">
+    **FXAA** (`FXAA.comp.glsl`, composite57) smooths any remaining sub-pixel aliasing. **Robust Contrast Adaptive Sharpening** (`RCAS.comp.glsl`, composite58) then recovers fine detail softened by TAA.
+  </Accordion>
+
+  <Accordion title="Bloom (composite59–77)">
+    A multi-pass bloom chain progressively downsamples (composite59–68, passes 1–10) and then upsamples (composite69–77, passes 10–2) the bright regions of the scene to produce a soft glow.
+  </Accordion>
+
+  <Accordion title="Post Composite (composite78)">
+    `PostComposite` assembles bloom, Purkinje effect, and exposure into the final tone-mapped image, applying the AgX-inspired display render transform for colour management.
+  </Accordion>
+
+  <Accordion title="Exposure — Mip & Gather (composite79–80)">
+    `ExposureMip` (composite79) builds a luminance mip chain and `ExposureGather` (composite80) computes the final auto-exposure value with a configurable adaptation curve.
+  </Accordion>
+
+  <Accordion title="Overlay Composite (composite81)">
     `OverlayComposite` applies Minecraft's overlay effects (damage flash, night-vision tint, darkness vignette, etc.) over the full composited scene.
   </Accordion>
 
-  <Accordion title="TAA — Prepare & Resolve (composite61–62)">
-    Temporal Anti-Aliasing runs in two compute passes:
-    1. **TAAPrepare** (`TAAPrepare.comp.glsl`) — computes motion vectors and prepares neighbourhood colour clamping bounds.
-    2. **TAAResolve** (`TAAResolve.comp.glsl`) — reprojects the previous accumulated frame, blends with the current frame using adaptive clamping, and outputs the resolved TAA result.
+  <Accordion title="RTWSM Warp Finalization (composite82–84)">
+    Three passes finalize the RTWSM warp for the next frame's shadow pass: `IMapBlur` (composite82) blurs the importance map, `GetWarp` (composite83) derives the 1D warp function, and `Write2DWarp` (composite84) bakes it into a 2D lookup texture.
   </Accordion>
 
-  <Accordion title="Depth of Field (composite63–64)">
-    Active when `SETTING_DOF` is defined. `DOFPrepare` tiles the depth buffer and classifies pixels as in-focus or bokeh candidates. The main DoF pass then applies a physically-based circle-of-confusion blur with the focal distance from the auto-focus pass (or a user-set manual value).
-  </Accordion>
-
-  <Accordion title="Post Composite — Bloom, Purkinje, Exposure (composite65–82)">
-    A chain of passes handles final image-quality effects:
-    - **Bloom** (`composite59`–`composite77` region, multi-pass, up to 8 downsample/upsample rounds) — progressively downsamples and then upsamples the bright regions of the scene to produce a soft glow.
-    - **ExposureMip / ExposureGather** — build a luminance histogram and compute the final auto-exposure value with a configurable adaptation curve.
-    - **Purkinje Effect** — simulates the human eye's shift toward blue-green sensitivity in low-light conditions (`SCREEN_29`).
-    - **PostComposite** — assembles bloom, Purkinje, and exposure into the final tone-mapped image, applying the AgX-inspired display render transform for colour management.
-  </Accordion>
-
-  <Accordion title="FXAA / RCAS Sharpening (composite83–85)">
-    The final image quality pass applies Fast Approximate Anti-Aliasing (`FXAA.comp.glsl`) to smooth any remaining sub-pixel aliasing, followed by Robust Contrast Adaptive Sharpening (`RCAS.comp.glsl`) to recover fine detail softened by TAA.
+  <Accordion title="Final Global Data Update (composite85)">
+    `FinalGlobalDataUpdate` writes end-of-frame values (such as the updated exposure and TAA history pointers) into the global data buffer for use next frame.
   </Accordion>
 
   ---
 
   ### Final Pass — `final.vsh` / `final.fsh`
 
-  The final pass is a simple full-screen triangle that copies the composited, tone-mapped, and sharpened result from the last framebuffer texture to the display. It also handles any necessary colour-space conversion (e.g. HDR output flags if supported by the system) and applies the user's colour management settings.
+  The final pass is a simple full-screen triangle that copies the composited, tone-mapped, and sharpened result from the last framebuffer texture to the display. It also handles any necessary colour-space conversion and applies the user's colour management settings.
 
 </Steps>
 
@@ -235,14 +274,15 @@ The table below summarises which major systems feed which downstream passes:
 |---|---|
 | Begin atmosphere LUTs | Shadow sampling, direct lighting, sky composite |
 | RTWSM importance map (begin5) | Shadow geometry warp (shadow pass) |
-| Shadow map (shadow pass) | Shadow sampling composites (23–25) |
+| Shadow map (shadow pass) | Shadow sample setup & sampling (composite8, 15, 17) |
 | G-buffer depth/normals/albedo | HiZ generation, ReSTIR GI, direct lighting, DoF |
-| HiZ pyramid (19–21) | ReSTIR GI ray tracing (26–37) |
-| ReSTIR irradiance (36–37) | ReBLUR denoiser (38–45) |
-| Denoised GI (38–45) | Direct lighting composite (54–55) |
+| HiZ pyramid (composite2) | ReSTIR GI ray tracing (composite23–38) |
+| GI denoiser reproject (composite5) | GI accumulate (composite39) |
+| ReSTIR irradiance (composite36) | ReBLUR denoiser (composite39–44) |
+| Denoised GI (composite39–44) | Direct lighting composite (composite19) |
 | Direct + indirect lighting | Translucent composite, sky composite |
-| Full composited image | TAA, DoF, bloom, tone mapping |
-| TAA output | DoF, post composite, FXAA/RCAS |
+| Full composited image | TAA (composite55–56), DoF (composite54), bloom (composite59–77) |
+| TAA output | FXAA/RCAS (composite57–58), bloom, post composite |
 
 <Tip>
   Use the in-game performance profiles (Low → Insane) to scale the most expensive passes — spatial reuse count, shadow map resolution, bloom passes, and denoiser spatial filter — to match your hardware.

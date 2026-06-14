@@ -1,7 +1,7 @@
 ---
-title: "System Requirements for Alpha Piscium Shaders"
+title: "Alpha Piscium System Requirements: GPU, Drivers, and Iris"
 sidebarTitle: "Requirements"
-description: "Hardware and software requirements for running Alpha Piscium. Covers GPU compatibility, driver versions, and Minecraft mod loader requirements."
+description: "Hardware and software requirements for running Alpha Piscium. Covers GPU compatibility, driver versions, and the Iris shader loader requirement."
 ---
 
 Alpha Piscium uses cutting-edge graphics technology that places real demands on both your GPU and its drivers. Before installing, confirm that your hardware and software meet the requirements below. GPU vendor support in particular is not uniform — one vendor is entirely unsupported, and another requires a specific minimum driver version to function correctly.
@@ -46,6 +46,10 @@ Alpha Piscium is loaded through **Iris**, a dedicated shader loader for Minecraf
 
 Alpha Piscium supports integration with **Distant Horizons** and **Voxy**, mods that extend Minecraft's view distance using Level of Detail (LOD) rendering. If you have either mod installed alongside Iris, Alpha Piscium will work with their extended terrain rendering.
 
+<Note>
+  Voxy users must use **Voxy 0.2.6 or higher**. Earlier versions of Voxy are not compatible with Alpha Piscium's integration.
+</Note>
+
 ## Summary
 
 | Requirement | Details |
@@ -54,4 +58,4 @@ Alpha Piscium supports integration with **Distant Horizons** and **Voxy**, mods 
 | NVIDIA GPU | Supported — keep drivers up to date |
 | AMD GPU | Supported — driver must be newer than version 22.7.1 |
 | Intel GPU | **Not supported** |
-| Extended View Distance | Distant Horizons / Voxy integration supported |
+| Extended View Distance | Distant Horizons supported; Voxy 0.2.6 or higher required |
