@@ -1,0 +1,178 @@
+---
+title: "Performance Tuning Guide for Alpha Piscium"
+sidebarTitle: "Performance Tuning"
+description: "Optimize Alpha Piscium's performance by adjusting quality profiles, global illumination steps, shadow resolution, cloud rendering, and post-processing settings."
+---
+
+Alpha Piscium pushes cutting-edge rendering techniques — ReSTIR-based global illumination, epipolar volumetric scattering, RTWSM adaptive shadows, and volumetric clouds — all of which are computationally demanding by design. The shader ships six quality profiles that scale these techniques up and down as a unit, and every individual setting can be adjusted independently for fine-grained control. This guide walks through the settings with the highest performance impact so you can find the right balance for your hardware.
+
+<Tip>
+  **Start with a built-in profile.** The six quality profiles — Low, Medium, High, Ultra, Extreme, and Insane — adjust many settings simultaneously to known-good combinations. Select the highest profile your GPU can sustain at a playable framerate, then tweak individual settings from there rather than starting from scratch.
+</Tip>
+
+## Quality Profiles
+
+The profile selector appears at the top of the shader options screen. Each profile is a preset:
+
+| Profile | Intent |
+|---|---|
+| **Low** | Potato mode. Not recommended for typical play. |
+| **Medium** | Baseline performance mode. |
+| **High** | Balanced quality and performance. Good starting point for mid-range GPUs. |
+| **Ultra** | The intended Alpha Piscium experience. |
+| **Extreme** | Better quality at some performance cost. |
+| **Insane** | Maximum quality. Requires a high-end GPU. |
+
+## Global Illumination
+
+ReSTIR SSGI is the most GPU-intensive system in Alpha Piscium. The following settings have the largest individual impact.
+
+### Initial Sampling Screen Space Tracing Steps
+
+`SETTING_GI_INITIAL_SST_STEPS` controls how many steps the screen-space ray marcher takes when gathering initial GI samples. The default is **128**. Reducing this is one of the most effective single-setting changes you can make.
+
+| Value | Impact |
+|---|---|
+| `128` | Default. Full quality. |
+| `64` | Significant GPU time savings. Recommended for mid-range hardware. |
+| `32` | Large savings, visible reduction in indirect lighting accuracy at distance. |
+| `16` | Minimum. Useful for very low-end systems. |
+
+### Spatial Reuse
+
+`SETTING_GI_SPATIAL_REUSE` (toggle) and `SETTING_GI_SPATIAL_REUSE_COUNT` (sample count, default **6**) control ReSTIR spatial resampling, which borrows GI samples from neighboring pixels to improve quality. Spatial reuse is expensive because it multiplies per-pixel work by the reuse count.
+
+- To disable spatial reuse entirely, turn off `SETTING_GI_SPATIAL_REUSE`.
+- To reduce its cost while keeping it active, lower `SETTING_GI_SPATIAL_REUSE_COUNT` from `6` to `2` or `3`.
+
+### Temporal Reuse Limit
+
+`SETTING_GI_TEMPORAL_REUSE_LIMIT` (default **24**) caps how many previous frames can contribute to temporal GI accumulation. Higher values improve quality but increase lighting response latency. Reducing it does not dramatically affect GPU cost, but can help with perceived lighting accuracy.
+
+## Denoiser
+
+### Temporal History Length
+
+`SETTING_DENOISER_HISTORY_LENGTH` (default **64**) sets how many frames are accumulated for the ReBLUR temporal denoiser. A longer history produces smoother results but consumes more VRAM for the accumulation buffers. Reducing this value lowers both VRAM usage and the latency before lighting changes settle.
+
+| Value | Effect |
+|---|---|
+| `64` | Default. Smooth, stable GI. |
+| `32` | Faster response to lighting changes, slightly more visible noise. |
+| `16` | Noticeably noisier but lower VRAM footprint. |
+
+## Shadows
+
+### Shadow Map Resolution
+
+`SETTING_SHADOW_MAP_RESOLUTION` (default **2048**) determines the texel density of the shadow map. RTWSM warping concentrates shadow detail near the player, so the effective quality is higher than a naïve shadow map of the same resolution — but a larger map still improves quality at shadow edges and in complex scenes.
+
+| Value | Notes |
+|---|---|
+| `4096` | High quality. Significant VRAM increase. |
+| `2048` | **Default.** Good balance. Recommended for mid-range GPUs. |
+| `1024` | Lowest quality, lowest VRAM. May show visible shadow pixelation. |
+
+<Note>
+  Reducing shadow map resolution is one of the most effective ways to reduce VRAM consumption, in addition to the GPU time savings.
+</Note>
+
+### PCSS Sample Count
+
+`SETTING_PCSS_SAMPLE_COUNT` (default **16**) controls how many samples are used for Percentage Closer Soft Shadow filtering, which produces realistically soft shadow edges based on distance from the shadow caster. Reducing this lowers GPU cost at the expense of softer shadow edge smoothness.
+
+Available values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`.
+
+## Volumetric Lighting (Atmosphere)
+
+### Epipolar Slices
+
+`SETTING_EPIPOLAR_SLICES` (default **1024**) sets the number of epipolar slices used for volumetric light scattering. This is the dominant cost factor for atmospheric rays.
+
+| Value | Notes |
+|---|---|
+| `1024` | Default. High quality god rays. |
+| `512` | Moderate quality reduction, meaningful performance gain. |
+| `256` | Visible quality drop in god ray density. Suitable for low-end hardware. |
+
+### Slice Samples
+
+`SETTING_SLICE_SAMPLES` (default **512**) sets the number of samples per epipolar slice. Reducing it saves GPU time proportionally.
+
+| Value | Notes |
+|---|---|
+| `512` | Default. |
+| `256` | Good balance for mid-range GPUs. |
+| `128` | Low end. |
+
+### Sky Samples
+
+`SETTING_SKY_SAMPLES` (default **32**) controls sample count for sky lighting. The range is 16–64. Reducing to `16` or `24` saves GPU time with minimal visible impact in most scenes.
+
+## Clouds
+
+### Disable Low Clouds
+
+`SETTING_CLOUDS_CU` toggles the volumetric cumulus cloud layer. Volumetric clouds involve ray marching through a noise-based density field — disabling them is one of the largest single performance wins available.
+
+- To disable: turn off **Enable Low Clouds** under **Shader Options → Clouds → Low Clouds**.
+- High clouds (`SETTING_CLOUDS_CI`) are much cheaper and can remain enabled independently.
+
+### Cloud Upscale Factor
+
+If you want to keep volumetric clouds but reduce their cost, `SETTING_CLOUDS_LOW_UPSCALE_FACTOR` renders clouds at a lower internal resolution and upscales the result. The default is `2.0 x`. Higher upscale factors trade cloud detail for performance.
+
+| Value | Notes |
+|---|---|
+| `1.0 x` | Native resolution. Highest quality. |
+| `2.0 x` | Default. Good balance. |
+| `3.0 x` | Noticeable quality reduction but meaningful savings. |
+| `4.0 x` | Maximum upscale. |
+
+## Post Processing
+
+### Depth of Field
+
+`SETTING_DOF` is **disabled by default** (`//#define SETTING_DOF`). Enabling it adds a physically based bokeh blur pass. If you enable DOF and experience frame rate drops, this is one of the first things to disable. The blur quality (`SETTING_DOF_QUALITY`) and maximum blur radius (`SETTING_DOF_MAX_SAMPLE_RADIUS`) are the cost levers within DOF.
+
+### Bloom
+
+`SETTING_BLOOM` is **enabled by default**. Bloom adds a glow pass for overbright pixels. Disabling it saves a small amount of GPU time per frame. The number of bloom passes (`SETTING_BLOOM_PASS`, default **8**) can also be reduced to save additional time.
+
+### Water Caustics
+
+`SETTING_WATER_CAUSTICS` is **enabled by default** and shows light caustic patterns on surfaces beneath water. Disabling it saves GPU time whenever water is visible in the scene.
+
+## Mid-Range GPU Recommended Settings
+
+The following combination is a reasonable starting point for mid-range GPUs (e.g., RX 6700, RTX 3060, RTX 4060):
+
+<CardGroup cols={2}>
+  <Card title="Quality Profile" icon="gauge">
+    Set to **High**. This is the intended balanced preset.
+  </Card>
+  <Card title="GI Initial Steps" icon="route">
+    Reduce `SETTING_GI_INITIAL_SST_STEPS` from `128` to **64**.
+  </Card>
+  <Card title="Shadow Map Resolution" icon="map">
+    Keep at **2048** (default), or reduce to **1024** if VRAM is constrained.
+  </Card>
+  <Card title="Depth of Field" icon="camera">
+    Leave **disabled** (default) unless you specifically want the effect.
+  </Card>
+  <Card title="Epipolar Slices" icon="sun">
+    Reduce `SETTING_EPIPOLAR_SLICES` from `1024` to **512**.
+  </Card>
+  <Card title="Spatial Reuse Count" icon="arrows-to-circle">
+    Reduce `SETTING_GI_SPATIAL_REUSE_COUNT` from `6` to **3**.
+  </Card>
+</CardGroup>
+
+## VRAM Reduction Summary
+
+If you are running out of VRAM rather than GPU compute time, these settings reduce buffer sizes:
+
+- **Reduce `SETTING_SHADOW_MAP_RESOLUTION`** — the shadow map is one of the largest single allocations.
+- **Reduce `SETTING_DENOISER_HISTORY_LENGTH`** — accumulation buffers scale with history length.
+- **Reduce `SETTING_DENOISER_FAST_HISTORY_LENGTH`** — the fast history buffer is a secondary accumulation buffer.
+- **Disable `SETTING_CLOUDS_CU`** — volumetric cloud temporal accumulation buffers are freed.

@@ -1,0 +1,231 @@
+---
+title: "Atmosphere, Sky, and Celestial Body Settings"
+sidebarTitle: "Atmosphere"
+description: "Configure Alpha Piscium's physically-based atmosphere: haze, Rayleigh and Mie scattering, light shafts, sun, moon, and star settings."
+---
+
+Alpha Piscium renders its sky using the Unreal Engine Sky Atmosphere technique — a physically-based model that simulates Rayleigh scattering, Mie scattering, and ozone absorption through separate, individually tunable coefficients. Volumetric light shafts (god rays) are computed with epipolar sampling, which projects the atmosphere along radial lines emanating from the sun, dramatically reducing the cost of high-quality light shaft rendering compared to naive ray marching. Together these systems produce a sky that responds correctly to every time of day, from the crisp blue noon to the deep orange haze of sunrise and the ink-blue clarity of midnight.
+
+## Scale
+
+<Accordion title="Atmosphere Scale">
+  <ParamField path="SETTING_ATM_ALT_SCALE" type="integer" default="1000">
+    Altitude scale factor. A value of 1 means 1 block = 1 km; a value of 1000 means 1000 blocks = 1 km. Raise this value if the atmosphere looks too thin or if fog fades out too rapidly at low altitudes.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_D_SCALE" type="integer" default="1000">
+    Distance scale factor. A value of 1 means 1 block = 1 km; a value of 1000 means 1000 blocks = 1 km. Adjusting this independently from the altitude scale allows the horizon haze to change without affecting the sky gradient height.
+  </ParamField>
+</Accordion>
+
+## Ground Albedo
+
+<Accordion title="Ground Color">
+  The ground albedo is the color of light that bounces off the terrain back into the atmosphere. It tints the horizon and affects the overall sky color, particularly at low sun angles.
+
+  <ParamField path="SETTING_ATM_GROUND_ALBEDO_R" type="integer" default="45">
+    Red component of the ground albedo color (0–255). Affects warm horizon tones at sunrise and sunset.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_GROUND_ALBEDO_G" type="integer" default="89">
+    Green component of the ground albedo color (0–255). Affects the mid-tone of light reflected from the terrain.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_GROUND_ALBEDO_B" type="integer" default="82">
+    Blue component of the ground albedo color (0–255). Affects the cool blue tint at twilight.
+  </ParamField>
+</Accordion>
+
+## Light Shafts (Epipolar Sampling)
+
+<Accordion title="Epipolar Light Shaft Quality">
+  These settings control the quality of the epipolar-sampled volumetric light shaft pass. Higher values improve quality but increase GPU cost proportionally.
+
+  <ParamField path="SETTING_EPIPOLAR_SLICES" type="integer" default="1024">
+    Number of epipolar slices used for volumetric lighting. Valid values: 256, 512, 1024, 2048. Higher values produce more detailed light shaft boundaries at greater performance cost.
+  </ParamField>
+
+  <ParamField path="SETTING_SLICE_SAMPLES" type="integer" default="512">
+    Number of samples per epipolar slice. Valid values: 128, 256, 512, 1024. Controls how finely each slice is sampled along the ray toward the sun.
+  </ParamField>
+
+  <ParamField path="SETTING_LIGHT_SHAFT_SAMPLES" type="integer" default="12">
+    Samples for the volumetric light shaft ray march (god rays). Valid values: 4–32. Higher values create smoother, more detailed rays.
+  </ParamField>
+
+  <ParamField path="SETTING_LIGHT_SHAFT_SHADOW_SAMPLES" type="integer" default="8">
+    Shadow samples evaluated within light shaft rays. Valid values: 1–16. Higher values improve shadow accuracy inside god rays.
+  </ParamField>
+
+  <ParamField path="SETTING_LIGHT_SHAFT_DEPTH_BREAK_CORRECTION_SAMPLES" type="integer" default="32">
+    Shadow samples used specifically for depth break correction in light shafts. Valid values: 8–64. Prevents halos where light shafts intersect geometry at depth discontinuities.
+  </ParamField>
+
+  <ParamField path="SETTING_LIGHT_SHAFT_SOFTNESS" type="integer" default="5">
+    How soft and diffused the light shaft edges appear. Valid values: 0–10. Higher values create wider, more atmospheric rays; lower values produce sharper beams.
+  </ParamField>
+
+  <ParamField path="SETTING_DEPTH_BREAK_CORRECTION" type="boolean" default="true">
+    Enables depth break correction for light shafts. When enabled, prevents light shaft halos that appear where foreground geometry meets the sky at depth boundaries.
+  </ParamField>
+</Accordion>
+
+## Sky Rendering
+
+<Accordion title="Sky View Resolution and Samples">
+  <ParamField path="SETTING_SKYVIEW_RES" type="integer" default="256">
+    Resolution of the sky view LUT (look-up texture). Valid values: 128, 256, 512, 1024. Higher values improve sky color gradient accuracy, especially near the horizon, at the cost of GPU memory and compute.
+  </ParamField>
+
+  <ParamField path="SETTING_SKY_SAMPLES" type="integer" default="32">
+    Number of integration samples for sky transmittance calculations. Valid values: 16, 24, 32, 40, 48, 56, 64. Higher values improve accuracy for the sky color during complex lighting conditions.
+  </ParamField>
+</Accordion>
+
+## Mie Scattering (Haze & Fog)
+
+<Accordion title="Global Turbidity">
+  Mie scattering is responsible for the whitish haze that fills the atmosphere near the horizon and around the sun. Higher turbidity values create a denser, mistier atmosphere reminiscent of humid or polluted air. The actual turbidity value applied is **2^x**, where x is the setting value.
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY" type="float" default="2.0">
+    Base Mie turbidity (overall atmospheric haziness). Range: 0.0–8.0. The actual coefficient is 2^x. A value of 0 gives a near-pristine clear sky; higher values produce heavier haze.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TIME" type="boolean" default="true">
+    When enabled, turbidity is automatically modulated by time of day, applying the per-time values below. Disable to use only the global turbidity value across all hours.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Per-Time-of-Day Turbidity">
+  When `SETTING_ATM_MIE_TIME` is enabled, these values override the global turbidity at each time of day. All values use the **2^x** scale and range from 0.0 to 8.0. Default values reflect a natural diurnal haze cycle with peak haziness at sunrise and midnight.
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_EARLY_MORNING" type="float" default="4.5">
+    Atmospheric haze during early morning hours, before sunrise. Actual value: 2^x.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_SUNRISE" type="float" default="5.25">
+    Atmospheric haze at sunrise — the peak turbidity time by default, creating vivid warm colors.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_MORNING" type="float" default="4.0">
+    Atmospheric haze during morning hours after sunrise, as the sky clears.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_NOON" type="float" default="2.0">
+    Atmospheric haze at noon — the default clearest point of the day.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_AFTERNOON" type="float" default="1.0">
+    Atmospheric haze during afternoon hours. Set lower than noon by default for crisp afternoon light.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_SUNSET" type="float" default="3.0">
+    Atmospheric haze at sunset, producing warm orange and red color tones.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_NIGHT" type="float" default="3.5">
+    Atmospheric haze during early night hours.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_TURBIDITY_MIDNIGHT" type="float" default="4.0">
+    Atmospheric haze at midnight. Higher default value creates a slightly murky night sky.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Mie Coefficients">
+  These multipliers scale the underlying Mie scattering and absorption coefficients independently of turbidity, allowing fine control over how haze looks without changing its density.
+
+  <ParamField path="SETTING_ATM_MIE_SCT_MUL" type="float" default="1.0">
+    Mie scattering multiplier. Range: 0.0–5.0. Controls how brightly haze scatters light. Higher values produce a brighter, more luminous haze around the sun and near the horizon.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_MIE_ABS_MUL" type="float" default="0.1">
+    Mie absorption multiplier. Range: 0.0–2.0. Controls how much light is absorbed by haze particles. Higher values darken the haze, creating murkier, heavier atmospheric fog.
+  </ParamField>
+</Accordion>
+
+## Rayleigh Scattering and Ozone
+
+<Accordion title="Rayleigh and Ozone Coefficients">
+  <ParamField path="SETTING_ATM_RAY_SCT_MUL" type="float" default="1.0">
+    Rayleigh scattering multiplier. Range: 0.0–5.0. Controls the intensity of the blue sky color produced by molecular scattering. Higher values deepen and saturate the blue sky; lower values produce a paler or more white sky.
+  </ParamField>
+
+  <ParamField path="SETTING_ATM_OZO_ABS_MUL" type="float" default="1.0">
+    Ozone absorption multiplier. Range: 0.0–5.0. Simulates the ozone layer's effect of absorbing yellow-green wavelengths, which enhances the blue and purple hues visible in the sky dome during sunrise and sunset.
+  </ParamField>
+</Accordion>
+
+## Sun
+
+<Accordion title="Sun Appearance">
+  <ParamField path="SETTING_SUN_RADIUS" type="float" default="1.0">
+    Size of the sun disc. A value of 1.0 represents the realistic solar radius. Valid values span from 0.0078125 to 1024.0 (scale multiplier). Larger sun discs produce softer, wider shadow penumbras via PCSS.
+  </ParamField>
+
+  <ParamField path="SETTING_SUN_DISTANCE" type="float" default="1.0">
+    Distance of the sun in astronomical units (AU) relative to the real sun distance of 149.6 million km. Valid values span from 0.0078125 to 1024.0. Changing distance while keeping radius constant alters the apparent angular size of the sun.
+  </ParamField>
+
+  <ParamField path="sunPathRotation" type="float" default="-20.0">
+    Angle of the sun's arc across the sky in degrees. Range: −90.0 to 90.0. Negative values tilt the sun's path toward the northern horizon (as seen from northern hemisphere perspective); positive values tilt it toward the south. Default −20° provides a natural non-overhead sun path.
+  </ParamField>
+
+  <ParamField path="SETTING_REAL_SUN_TEMPERATURE" type="boolean" default="true">
+    When enabled, uses the actual solar color temperature of 5772 K for an accurate warm yellow-white sunlight color. When disabled, the value from `SETTING_SUN_TEMPERATURE` is used instead.
+  </ParamField>
+
+  <ParamField path="SETTING_SUN_TEMPERATURE" type="integer" default="5700">
+    Color temperature of sunlight in Kelvin. Range: 1000–50000 K. Only active when `SETTING_REAL_SUN_TEMPERATURE` is disabled. Lower values (2000–3000 K) produce warm amber sunset light; higher values (8000+ K) produce cool blue-white light.
+  </ParamField>
+</Accordion>
+
+## Moon
+
+<Accordion title="Moon Appearance">
+  <ParamField path="SETTING_MOON_RADIUS" type="float" default="1.0">
+    Size of the moon disc. A value of 1.0 represents the realistic lunar radius. Valid range: 0.0078125–1024.0 (scale multiplier).
+  </ParamField>
+
+  <ParamField path="SETTING_MOON_DISTANCE" type="float" default="1.0">
+    Distance to the moon relative to its real-world distance of 384,399 km. Valid range: 0.0078125–1024.0. Affects the moon's apparent size in the sky.
+  </ParamField>
+
+  <ParamField path="SETTING_MOON_ALBEDO" type="float" default="0.12">
+    Reflectivity of the moon surface. Range: 0.01–1.0. The default of 0.12 is physically accurate — the real Moon reflects approximately 12% of incoming sunlight. Higher values create brighter nights.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Moon Tint Color">
+  The moon tint multiplies the reflected moonlight color. The default values (R 0.8, G 0.9, B 1.0) produce a slightly cool blue-white tone characteristic of real moonlight.
+
+  <ParamField path="SETTING_MOON_COLOR_R" type="float" default="0.8">
+    Red component of the moon color tint. Range: 0.0–1.0.
+  </ParamField>
+
+  <ParamField path="SETTING_MOON_COLOR_G" type="float" default="0.9">
+    Green component of the moon color tint. Range: 0.0–1.0.
+  </ParamField>
+
+  <ParamField path="SETTING_MOON_COLOR_B" type="float" default="1.0">
+    Blue component of the moon color tint. Range: 0.0–1.0.
+  </ParamField>
+</Accordion>
+
+## Stars
+
+<Accordion title="Star Map Settings">
+  Alpha Piscium renders stars from a real star catalog. These settings control how the catalog data is interpreted and displayed.
+
+  <ParamField path="SETTING_STARMAP_INTENSITY" type="integer" default="6">
+    Overall brightness of all stars. Range: 0–16. Higher values make faint stars more visible and the night sky more dramatic.
+  </ParamField>
+
+  <ParamField path="SETTING_STARMAP_BRIGHT_STAR_BOOST" type="integer" default="4">
+    Extra brightness boost applied only to the most prominent catalog stars. Range: 0–8. Creates more realistic apparent size variation between bright and dim stars.
+  </ParamField>
+
+  <ParamField path="SETTING_STARMAP_GAMMA" type="float" default="0.8">
+    Gamma/contrast applied to the star brightness distribution. Range: 0.1–2.0. Lower values compress the range, making faint stars more visible. Higher values increase contrast between the dimmest and brightest stars.
+  </ParamField>
+</Accordion>

@@ -1,0 +1,131 @@
+---
+title: "Troubleshooting Alpha Piscium: Common Issues and Fixes"
+sidebarTitle: "Troubleshooting"
+description: "Solutions to common Alpha Piscium issues including loading failures, dark lighting, GPU compatibility problems, and flickering or performance problems."
+---
+
+Alpha Piscium uses advanced rendering techniques that push the boundaries of what Minecraft's shader loader supports. Most issues users encounter fall into a small number of categories: loading failures caused by an outdated version of Iris, visual problems that trace back to missing PBR resource packs, GPU driver or hardware incompatibilities, and inherent limitations of screen-space techniques. The accordion sections below cover every common problem with a direct fix or clear explanation.
+
+## Loading and Startup Issues
+
+<Accordion title="The shaderpack fails to load entirely">
+  Alpha Piscium requires **Iris version 1.7 or higher**. Older versions of Iris do not support the shader features Alpha Piscium depends on and will fail to compile it.
+
+  **Fix:**
+  1. Open the [Iris download page](https://www.irisshaders.dev/download) and download the latest release.
+  2. Replace your existing Iris installation and relaunch Minecraft.
+  3. Select Alpha Piscium from **Options → Video Settings → Shader Packs**.
+
+  <Note>
+    If you installed Iris via a modpack or launcher profile, make sure the profile is also updated — the Iris version bundled with the pack may be outdated.
+  </Note>
+</Accordion>
+
+<Accordion title="I get a compilation error or a black screen after loading">
+  A compilation error means the shader failed to build on your GPU's driver. This can be caused by a driver bug, an outdated driver, or a hardware incompatibility.
+
+  **Steps to diagnose:**
+  1. In the Iris shader pack selection screen, press **Ctrl+D** to force a full reload of the shader.
+  2. If the error persists, navigate to your `.minecraft/patched_shaders` folder — the error message will specify which files to attach.
+  3. Open a [GitHub Issue](https://github.com/Luna5ama/Alpha-Piscium/issues) and include:
+     - The full error message shown by Iris.
+     - The relevant files from `.minecraft/patched_shaders` as noted in the error.
+     - Your GPU model and driver version.
+
+  You can also ask for help in the [Discord server](https://discord.gg/E2Uq2MmHgq).
+</Accordion>
+
+## Visual Problems
+
+<Accordion title="Everything is dark at night — blocks don't glow">
+  This is the most commonly reported issue for new users. Alpha Piscium's lighting pipeline relies on **emissive material data** from a PBR resource pack. Vanilla Minecraft textures do not include emissive maps, so blocks like torches, glowstone, and sea lanterns do not produce light correctly without one.
+
+  **Fix:** Install a LabPBR-compatible resource pack.
+  - For a **vanilla-faithful look**: use **SPBR**.
+  - For a **high-resolution, realistic look**: use **Patrix**.
+
+  After installing the pack, ensure the **PBR Materials** setting (found under **Shader Options → Terrain**) is set to **LabPBR (Auto)** or **LabPBR (Force)**.
+
+  See the [PBR Resource Packs guide](/guides/pbr-resource-packs) for full setup instructions.
+</Accordion>
+
+<Accordion title="The scene goes dark when I quickly turn around">
+  This behavior is a known limitation of **screen-space techniques**. Alpha Piscium's global illumination (ReSTIR SSGI) and some other effects only have access to what is currently visible on screen. When you rotate the camera quickly, previously visible geometry leaves the screen and the lighting samples it contributed are lost. The scene temporarily darkens or shifts in brightness while the temporal accumulators repopulate.
+
+  **There is no perfect fix for this** — it is an inherent trade-off of screen-space rendering. The temporal denoiser and history length settings soften the transition, but cannot eliminate it entirely.
+
+  If the effect is very pronounced, you can try:
+  - Increasing `SETTING_DENOISER_HISTORY_LENGTH` (makes the transition smoother but slower to recover).
+  - Increasing `SETTING_GI_TEMPORAL_REUSE_LIMIT` to allow more frame reuse.
+</Accordion>
+
+<Accordion title="Flickering or excessive noise in indirect lighting">
+  Persistent flickering or high-frequency noise in the GI usually indicates that the temporal denoiser is not accumulating enough stable history, or that fireflies are not being suppressed.
+
+  **Try the following adjustments in order:**
+
+  1. **Increase temporal history length:** Raise `SETTING_DENOISER_HISTORY_LENGTH` (default `64`). Higher values smooth out noise by blending more frames, at the cost of lighting responsiveness.
+  2. **Increase the temporal reuse limit:** Raise `SETTING_GI_TEMPORAL_REUSE_LIMIT` (default `24`) to allow the GI system to reuse more samples from previous frames.
+  3. **Enable firefly suppression:** Ensure `SETTING_DENOISER_ANTI_FIREFLY` is enabled (it is on by default). This setting applies Robust Contrast-based Range Shrinkage to remove bright noise artifacts.
+  4. **Adjust flicker suppression:** Raise `SETTING_DENOISER_FLICKER_SUPPRESSION` (default `3`, range `0`–`10`). Higher values reduce GI flickering but can introduce a slight lag in lighting response.
+</Accordion>
+
+<Accordion title="Shadow edges look poor or have visible artifacts">
+  Alpha Piscium uses RTWSM (Rectilinear Texture Warping Shadow Mapping), which adaptively allocates shadow map resolution based on scene content. If shadows look imprecise at edges, a few settings can help:
+
+  - **Increase shadow map resolution:** Raise `SETTING_SHADOW_MAP_RESOLUTION` (options: `1024`, `2048`, `3072`, `4096`). The default is `2048`. Higher values allocate more texels and improve edge precision.
+  - **Tune RTWSM warping:** The Forward (`SETTING_RTWSM_F_*`) and Backward (`SETTING_RTWSM_B_*`) importance analysis settings under **Shader Options → RTWSM** control how resolution is distributed. The Backward Surface Normal Function (`SETTING_RTWSM_B_SN`) and Backward Shadow Edge Function (`SETTING_RTWSM_B_SE`) are particularly relevant for shadow edge quality.
+  - **Increase PCSS sample count:** Raise `SETTING_PCSS_SAMPLE_COUNT` (default `16`) for smoother soft shadow edges. Available values go up to `64`.
+</Accordion>
+
+## GPU Compatibility
+
+<Accordion title="Intel GPU — shader won't run or renders incorrectly">
+  **Intel GPUs are not supported.** Alpha Piscium uses cutting-edge OpenGL features and relies on correct driver behaviour. Intel does not adequately maintain its OpenGL drivers, which results in compilation failures or severe rendering corruption on Intel integrated and discrete graphics.
+
+  There is no workaround. A dedicated AMD or NVIDIA GPU is required.
+</Accordion>
+
+<Accordion title="AMD GPU — shader loads but has visual corruption or crashes">
+  AMD GPU issues with Alpha Piscium are almost always caused by an **outdated driver**. AMD significantly improved OpenGL compliance in driver version **22.7.1** and subsequent releases.
+
+  **Fix:**
+  1. Open AMD Software (Adrenalin Edition) or go to [AMD's driver download page](https://www.amd.com/en/support).
+  2. Check your current driver version — it should be **newer than 22.7.1**.
+  3. If your driver is older, update to the latest available release.
+  4. Relaunch Minecraft and reload the shader with **Ctrl+D** in the Iris shader selection screen.
+</Accordion>
+
+<Accordion title="NVIDIA GPU — unexpected behavior or driver-related issues">
+  NVIDIA GPUs are the primary development target for Alpha Piscium and are generally well supported. If you encounter unusual rendering results on NVIDIA hardware, you can try enabling the `SETTING_ASSUME_NVIDIA_GPU` option under **Shader Options → Miscellaneous**. This forces NVIDIA-specific optimizations and can also work around some driver quirks.
+</Accordion>
+
+## Performance
+
+<Accordion title="Framerates are too low">
+  Alpha Piscium is a demanding shader. If you are not getting playable framerates, the [Performance Tuning guide](/guides/performance-tuning) covers all the high-impact settings in detail.
+
+  Quick wins to try first:
+  - Lower the **Quality Profile** to **High** or **Medium**.
+  - Reduce `SETTING_GI_INITIAL_SST_STEPS` from `128` to `64`.
+  - Disable `SETTING_CLOUDS_CU` (volumetric low clouds).
+  - Reduce `SETTING_EPIPOLAR_SLICES` from `1024` to `512`.
+  - Reduce `SETTING_GI_SPATIAL_REUSE_COUNT` from `6` to `2` or `3`.
+</Accordion>
+
+## Getting More Help
+
+If your issue is not covered here, the following resources are available:
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/Luna5ama/Alpha-Piscium/issues">
+    Report bugs and compilation errors. Include your error message and the relevant files from `.minecraft/patched_shaders`.
+  </Card>
+  <Card title="Discord Server" icon="discord" href="https://discord.gg/E2Uq2MmHgq">
+    Ask questions and get help from the community and developer. Fastest way to get a response for configuration questions.
+  </Card>
+</CardGroup>
+
+<Warning>
+  When filing a GitHub issue for a loading or compilation error, always attach the error message **and** the relevant shader files from `.minecraft/patched_shaders` as specified in the error output. Reports without these files are much harder to diagnose.
+</Warning>

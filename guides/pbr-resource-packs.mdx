@@ -1,0 +1,110 @@
+---
+title: "Using PBR Resource Packs with Alpha Piscium"
+sidebarTitle: "PBR Resource Packs"
+description: "Learn how to choose and configure PBR resource packs for Alpha Piscium, including LabPBR format support, normal mapping, and recommended packs."
+---
+
+Alpha Piscium is built around Physically Based Rendering from the ground up. Every lighting calculation — from emissive block glow to specular reflections and subsurface scattering — depends on accurate material data that vanilla Minecraft textures simply do not provide. Without a compatible PBR resource pack, emissive values are undefined for most blocks, which means the world will appear unnaturally dark at night and indoor spaces will lack the warm, glowing quality that PBR materials produce. Pairing Alpha Piscium with a proper PBR resource pack is the single most impactful step you can take to get the intended look.
+
+## Why PBR Matters
+
+Standard Minecraft resource packs only ship a single color (albedo) texture per block face. PBR pipelines require at minimum three additional data channels:
+
+- **Normal map** — encodes per-pixel surface orientation to simulate fine geometric detail without extra geometry.
+- **Specular / roughness / metalness map** — controls how light scatters off or reflects from a surface.
+- **Emissive map** — marks pixels that emit light, allowing blocks like glowstone, sea lanterns, and shroomlights to actually illuminate their surroundings at night.
+
+Without these maps, Alpha Piscium falls back to hardcoded or estimated values, which is why nighttime scenes look flat or overly dark when running vanilla textures.
+
+## The PBR Material Mode Setting
+
+The `SETTING_PBR_MATERIAL` option controls how Alpha Piscium sources material data. It is found under **Options → Video Settings → Shader Options → Terrain** in-game and has three values:
+
+<CardGroup cols={3}>
+  <Card title="Built-in (0)" icon="cube">
+    Uses hardcoded PBR data for vanilla blocks. No resource pack required, but quality and coverage are limited to what is built into the shader.
+  </Card>
+  <Card title="LabPBR Auto (1)" icon="wand-magic-sparkles">
+    **Default.** Automatically detects whether the active resource pack provides LabPBR-format textures and enables them if found. Falls back gracefully if no pack is detected.
+  </Card>
+  <Card title="LabPBR Force (2)" icon="bolt">
+    Forces LabPBR mode regardless of detection. Use this if your pack provides LabPBR data but the automatic detection does not activate it.
+  </Card>
+</CardGroup>
+
+<Note>
+  The default value is **LabPBR (Auto)**. If you install a compatible resource pack and the shader does not seem to use it, try switching to **LabPBR (Force)** to override detection.
+</Note>
+
+## What Is LabPBR?
+
+LabPBR is the community-standard format for encoding PBR material data inside Minecraft resource packs. It stores additional material information in the otherwise unused color channels of specially named textures:
+
+- `_n` textures (normal maps) — encode surface normals in the XYZ channels and ambient occlusion in the alpha channel.
+- `_s` textures (specular maps) — encode roughness, metalness, emissive intensity, porosity, and subsurface scattering data packed into RGBA channels.
+
+Because LabPBR is a shared standard, a pack that supports it will work with any LabPBR-compatible shader, including Alpha Piscium. For full specification details, see the [LabPBR Material Standard](https://github.com/rre36/lab-pbr/wiki).
+
+## Recommended Resource Packs
+
+The Alpha Piscium FAQ recommends two packs:
+
+<CardGroup cols={2}>
+  <Card title="SPBR" icon="leaf">
+    Recommended for players who want a **vanilla-faithful style** with proper PBR data. SPBR keeps Minecraft's familiar block aesthetic while adding the normal, specular, and emissive maps that Alpha Piscium needs to render correctly.
+  </Card>
+  <Card title="Patrix" icon="gem">
+    A higher-resolution, more realistic resource pack. Recommended if you prefer a **detailed, non-vanilla look**. Patrix ships full LabPBR support and pairs well with Alpha Piscium's lighting pipeline.
+  </Card>
+</CardGroup>
+
+## Normal Mapping
+
+Normal mapping adds surface depth and micro-detail to blocks without requiring additional geometry. Alpha Piscium reads normal maps from your LabPBR resource pack and applies them during lighting calculations.
+
+### Enabling Normal Mapping
+
+Normal mapping is controlled by `SETTING_NORMAL_MAPPING`, which is **enabled by default**. You can toggle it under **Shader Options → Terrain → Normal Mapping**.
+
+### Normal Mapping Strength
+
+`SETTING_NORMAL_MAPPING_STRENGTH` adjusts the intensity of the normal map effect. The value is an exponent: the actual strength applied is `2^x`. The default value is `0.0`, meaning a multiplier of exactly `1.0` (no amplification or attenuation). Increasing the value exaggerates surface detail; decreasing it flattens it.
+
+| Setting Value | Actual Multiplier | Effect |
+|---|---|---|
+| `-1.0` | 0.5× | Subtler surface detail |
+| `0.0` | 1.0× | Default (pack's native intensity) |
+| `1.0` | 2.0× | More pronounced surface relief |
+| `2.0` | 4.0× | Strong, exaggerated depth |
+
+## TBN Packing
+
+`SETTING_TBN_PACKING` is a terrain rendering optimization that packs normal and tangent vertex attributes into a tighter format. It is **enabled by default** and is safe to leave on for most setups.
+
+<Warning>
+  Disable `SETTING_TBN_PACKING` if you are using any mod that adds **smooth surface normals** to blocks (for example, mods that produce curved or rounded geometry). Leaving it enabled with such mods can produce incorrect lighting on those surfaces.
+</Warning>
+
+## Setup Walkthrough
+
+<Steps>
+  <Step title="Download a compatible resource pack">
+    Obtain SPBR (for vanilla style) or Patrix (for high-res), or any resource pack that ships LabPBR-format `_n` and `_s` textures.
+  </Step>
+  <Step title="Install the resource pack">
+    Place the resource pack ZIP in your `.minecraft/resourcepacks` folder and activate it via **Options → Resource Packs** in Minecraft.
+  </Step>
+  <Step title="Load Alpha Piscium">
+    Select Alpha Piscium from **Options → Video Settings → Shader Packs** and wait for it to compile.
+  </Step>
+  <Step title="Verify the PBR mode">
+    Open **Shader Options → Terrain** and confirm that **PBR Materials** is set to **LabPBR (Auto)**. If materials are not loading correctly, switch to **LabPBR (Force)**.
+  </Step>
+  <Step title="Adjust Normal Mapping Strength (optional)">
+    Under **Shader Options → Normal Mapping**, fine-tune `SETTING_NORMAL_MAPPING_STRENGTH` to taste. Start at `0.0` and increase if you want more pronounced surface detail.
+  </Step>
+</Steps>
+
+<Tip>
+  After switching resource packs, reload the shader with **Ctrl+D** in the Iris shader selection screen to ensure Alpha Piscium picks up the new textures.
+</Tip>

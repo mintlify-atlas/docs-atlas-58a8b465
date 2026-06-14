@@ -1,0 +1,159 @@
+---
+title: "Volumetric Cloud Settings: Cumulus and Cirrus"
+sidebarTitle: "Clouds"
+description: "Configure Alpha Piscium's real-time volumetric clouds, including cumulus and cirrus layers, coverage, density, height, wind, and rendering quality."
+---
+
+Alpha Piscium's clouds are fully volumetric, rendered using the **Nubis** technique developed by Guerrilla Games for *Horizon Zero Dawn*. Each cloud is a density field built from layered noise functions — base Perlin-Worley noise for the large-scale cloud shape, curl noise for turbulent internal structure, billowy noise for puffy cauliflower formations, and wispy noise for thin trailing edges. Lighting is evaluated per-sample using a deep shadow map approximation with multiple scattering estimation, giving cloud interiors their characteristic soft self-shadowing. Two independent cloud layers are available: a low cumulus layer for the characteristic puffy fair-weather and storm clouds, and a high cirrus layer for the thin wispy ice-crystal clouds found near the tropopause.
+
+## Global Cloud Lighting
+
+<Accordion title="Multiple Scattering and Ambient Light">
+  <ParamField path="SETTING_CLOUDS_MS_RADIUS" type="float" default="-2.5">
+    Radius of the multiple scattering approximation, expressed as **2^x**. Range: −5.0 to 0.0. Controls how far light is assumed to scatter laterally within the cloud volume. Higher values (closer to 0) produce brighter, more luminous cloud interiors and softer shadow gradients.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_AMB_BACKSCATTER_FACTOR" type="float" default="0.5">
+    Ambient backscatter phase factor. Range: 0.0–1.0. Controls how strongly ambient sky light scatters back toward the camera from cloud interiors. Higher values brighten cloud bases and reduce the contrast between lit tops and shadowed undersides.
+  </ParamField>
+</Accordion>
+
+## Cumulus (Low) Clouds
+
+<Accordion title="Enable and Rendering Quality">
+  <ParamField path="SETTING_CLOUDS_CU" type="boolean" default="true">
+    Enables the low cumulus cloud layer. These are the puffy, cauliflower-shaped clouds that form in the lower troposphere. Disable to remove low clouds entirely and improve performance.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_UPSCALE_FACTOR" type="integer" default="2">
+    Renders the low cloud layer at a reduced resolution and upscales the result. Options: 1.0×, 1.5×, 2.0×, 2.5×, 3.0×, 3.5×, 4.0×. Higher values improve performance at the cost of cloud detail. Default of 2.0× (half resolution) provides a good quality/performance balance.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_MAX_ACCUM" type="integer" default="16">
+    Maximum number of frames blended for temporal cloud accumulation. Valid values: 4–128. Higher values produce smoother clouds with less noise but can introduce ghosting when the camera moves quickly.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_CONFIDENCE_CURVE" type="float" default="4.0">
+    Controls how quickly accumulated cloud samples gain confidence and sharpen over time. Range: 1.0–8.0. Higher values converge to a clean image faster but may show more initial noise after camera movement.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_VARIANCE_CLIPPING" type="float" default="0.25">
+    Strength of variance clipping used to prevent ghosting artifacts during camera movement. Range: 0.0–1.0. Higher values suppress more ghosting but can increase flickering; lower values allow more temporal reuse at the risk of cloud trails.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_STEP_MIN" type="integer" default="48">
+    Minimum ray marching steps through the cloud volume, used when looking nearly straight up through relatively thin cloud sections. Valid values: 16–128. Higher values improve detail but reduce performance.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_STEP_MAX" type="integer" default="128">
+    Maximum ray marching steps through the cloud volume, used when clouds are viewed near the horizon through thick cross-sections. Valid values: 32–256. Higher values improve the quality of dense cloud banks but reduce performance.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Cumulus Layer Geometry">
+  <ParamField path="SETTING_CLOUDS_CU_HEIGHT" type="float" default="1.0">
+    Base altitude where the cumulus cloud layer begins, in kilometers. Range: 0.0–8.0 km. Raising this value lifts clouds higher in the sky; very low values produce ground-level fog-like effects.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CU_THICKNESS" type="float" default="2.0">
+    Vertical thickness of the cumulus cloud layer in kilometers. Range: 0.0–4.0 km. Thicker layers produce taller, more dramatic cloud formations; thinner layers create flatter, stratus-like clouds.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CU_DENSITY" type="float" default="1.0">
+    Density multiplier for the cumulus cloud layer. Range: 0.0–4.0×. Higher values produce denser, more opaque clouds. Very high values create dark storm clouds; lower values give wispy, translucent formations.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CU_COVERAGE" type="float" default="0.5">
+    Fraction of the sky covered by cumulus clouds. Range: 0.0–1.0. A value of 0.0 produces a clear sky; 1.0 produces a fully overcast sky. The default of 0.5 gives a partly cloudy sky.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Cumulus Phase and Wind">
+  <ParamField path="SETTING_CLOUDS_CU_PHASE_RATIO" type="float" default="0.9">
+    Ratio blending between isotropic and forward-scattering Henyey-Greenstein phase functions for cumulus cloud lighting. Range: 0.0–1.0. Higher values increase the bright silver lining and forward-scattering glow around cloud edges when lit from behind.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CU_WIND" type="boolean" default="true">
+    Enables animated cloud drift. When enabled, clouds move across the sky over time according to `SETTING_CLOUDS_CU_WIND_SPEED`.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CU_WIND_SPEED" type="float" default="0.0">
+    Speed and direction of cloud movement. Range: −4.0 to 4.0. Positive values move clouds in the forward direction; negative values reverse movement. A value of 0.0 keeps clouds stationary.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Cumulus Shape Parameters">
+  These settings control the three-dimensional shape of individual cumulus clouds using procedural noise. All frequency values represent a **2^x** offset applied to the base frequency.
+
+  <ParamField path="SETTING_CLOUDS_LOW_CONE_FACTOR" type="float" default="0.5">
+    Controls how pointed the upper portions of cloud structures appear. Range: 0.0–1.0. Higher values create sharper, more angular cloud towers.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_TOP_CURVE_FACTOR" type="integer" default="48">
+    Shape curvature of cloud tops. Valid values: 16–1024. Higher values create more angular, flatter tops; lower values round the tops into smooth domes.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_BOTTOM_CURVE_FACTOR" type="integer" default="128">
+    Shape curvature of cloud bases. Valid values: 16–1024. Higher values create more angular flat bases characteristic of well-developed cumulus; lower values create fuzzy, undefined bases.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_BASE_FREQ" type="float" default="0.0">
+    Frequency offset for the base cloud shape noise as **2^x** offset. Range: −4.0 to 4.0. Higher values scale the noise up, producing smaller, more numerous cloud clumps; lower values produce larger, more spread-out formations.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_CURL_FREQ" type="float" default="0.0">
+    Frequency offset for the large-scale curl noise distortion as **2^x** offset. Range: −4.0 to 4.0. Higher values add finer curl turbulence to the overall cloud shape.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_BILLOWY_FREQ" type="float" default="0.0">
+    Frequency offset for the billowy (cauliflower) detail noise as **2^x** offset. Range: −4.0 to 4.0. Higher values create smaller, more numerous billows across the cloud surface.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_BILLOWY_CURL_STR" type="float" default="0.0">
+    Strength of curl noise modulation on billowy formations as **2^x** offset. Range: −4.0 to 4.0. Higher values make billows more turbulent and irregular.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_WISPS_FREQ" type="float" default="0.0">
+    Frequency offset for the wispy detail noise as **2^x** offset. Range: −4.0 to 4.0. Higher values produce more and finer wispy tendrils trailing from cloud edges.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_LOW_WISPS_CURL_STR" type="float" default="0.0">
+    Curl modulation strength for wispy details as **2^x** offset. Range: −4.0 to 4.0. Higher values create more dynamically swirling wisps.
+  </ParamField>
+</Accordion>
+
+## Cirrus (High) Clouds
+
+<Accordion title="Enable Cirrus Clouds">
+  <ParamField path="SETTING_CLOUDS_CI" type="boolean" default="true">
+    Enables the high cirrus cloud layer. Cirrus clouds are thin, wispy ice-crystal formations that appear at high altitudes. They add atmosphere and visual depth to the sky without the heavy performance cost of the cumulus layer.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Cirrus Layer Geometry">
+  <ParamField path="SETTING_CLOUDS_CI_HEIGHT" type="float" default="9.0">
+    Altitude of the cirrus cloud layer in kilometers. Range: 6.0–14.0 km. Higher altitudes produce thinner, more ethereal wisps characteristic of real cirrus clouds in the upper troposphere.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CI_DENSITY" type="float" default="1.0">
+    Density multiplier for the cirrus layer. Range: 0.0–4.0×. Higher values make cirrus clouds more visible and opaque; lower values create near-invisible, very fine wisps.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CI_COVERAGE" type="float" default="0.4">
+    Fraction of the upper sky covered by cirrus clouds. Range: 0.0–1.0. Default of 0.4 gives a light covering that adds visual interest without dominating the sky.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_CI_PHASE_RATIO" type="float" default="0.6">
+    Blend between isotropic and forward-scattering phase functions for cirrus lighting. Range: 0.0–1.0. Higher values increase the characteristic bright halo and iridescent glow that cirrus clouds exhibit when the sun shines through them.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Cirrus Shape Parameters">
+  <ParamField path="SETTING_CLOUDS_HIGH_BILLOWY_FREQ" type="float" default="0.0">
+    Frequency offset for the billowy detail noise in the cirrus layer as **2^x** offset. Range: −4.0 to 4.0. Higher values produce smaller, more tightly packed billowy textures within cirrus sheets.
+  </ParamField>
+
+  <ParamField path="SETTING_CLOUDS_HIGH_BILLOWY_CURL_STR" type="float" default="0.0">
+    Curl modulation strength for cirrus billowy details as **2^x** offset. Range: −4.0 to 4.0. Higher values create more turbulent, swirling internal texture within cirrus formations.
+  </ParamField>
+</Accordion>

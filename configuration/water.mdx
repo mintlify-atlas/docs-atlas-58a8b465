@@ -1,0 +1,167 @@
+---
+title: "Water Rendering: Waves, Caustics, and Volume"
+sidebarTitle: "Water"
+description: "Configure Alpha Piscium's water appearance including surface roughness, parallax waves, underwater caustics, scattering color, and volumetric absorption."
+---
+
+Alpha Piscium's water rendering is divided into two interacting layers: the surface and the volume beneath it. The surface combines a GGX specular BRDF with parallax-mapped wave normals to produce three-dimensional ripples that refract and reflect the world above. Below the surface, a volumetric scattering and absorption model gives water its characteristic color depth — clear blue shallow water that deepens to teal and finally to near-black as the column of water absorbs the upper wavelengths of light. Caustic patterns cast onto the seabed are traced using a photon-map-inspired approach, while underwater light shafts simulate the shimmering caustic columns visible in real swimming pools and shallow seas.
+
+## Water Surface
+
+<Accordion title="Surface Roughness">
+  <ParamField path="SETTING_WATER_ROUGHNESS" type="float" default="9.0">
+    Controls how smooth and mirror-like the water surface appears. The actual GGX roughness value is **2^−x**, so higher settings produce smoother, more reflective water. Range: 4.0–12.0. At the default of 9.0 (roughness ≈ 0.002) the surface is very smooth, giving sharp reflections broken up by the normal map.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Wave Normals">
+  <ParamField path="SETTING_WATER_NORMAL_SCALE" type="float" default="1.5">
+    Intensity of the procedural water surface normals. Range: 0.0–5.0. Higher values produce choppier, more visibly perturbed waves; lower values create a calmer, more glassy surface.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Parallax Waves">
+  Parallax occlusion mapping gives water waves genuine three-dimensional depth rather than flat normal map perturbation, making ripples appear to have physical height.
+
+  <ParamField path="SETTING_WATER_PARALLAX" type="boolean" default="true">
+    Enables parallax occlusion mapping on water waves. When enabled, waves appear three-dimensional from grazing angles instead of flat. Disable if you experience performance issues on lower-end hardware.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_PARALLAX_STRENGTH" type="float" default="1.5">
+    How deep and prominent water waves appear with parallax enabled. Range: 0.0–5.0. Higher values exaggerate the wave height for a more dramatic surface.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_PARALLAX_LINEAR_STEPS" type="integer" default="8">
+    Number of linear search steps for parallax intersection. Valid values: 4, 6, 8, 12, 16, 24, 32. Higher values reduce staircase artifacts where steep wave faces are visible but cost proportionally more GPU time.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_PARALLAX_SECANT_STEPS" type="integer" default="2">
+    Number of secant refinement steps after the initial linear search. Valid values: 1–8. Higher values produce a more precise wave silhouette at minimal additional cost.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Refraction">
+  <ParamField path="SETTING_WATER_REFRACT_APPROX" type="boolean" default="true">
+    Uses an approximated refraction direction optimized for screen-space refraction. Produces more convincing results than full physically-correct refraction in most viewing scenarios while remaining compatible with the screen-space rendering pipeline.
+  </ParamField>
+</Accordion>
+
+## Underwater Effects
+
+<Accordion title="Caustics">
+  <ParamField path="SETTING_WATER_CAUSTICS" type="boolean" default="true">
+    Enables water caustic patterns on submerged surfaces. Alpha Piscium traces the paths of photons refracted through surface waves and accumulates them onto the seabed and submerged blocks, producing the characteristic shimmering light patterns visible in pools and shallow water.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Underwater Light Shafts">
+  <ParamField path="SETTING_WATER_SCATTERING_REFRACTION_APPROX" type="boolean" default="true">
+    Approximates the underwater light shaft effect caused by refraction through surface waves. Creates the bright columnar rays visible when looking up from underwater. Uses the wave normal information to modulate shaft intensity without a full volumetric ray march.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_SCATTERING_REFRACTION_APPROX_CONTRAST" type="integer" default="5">
+    Sharpness of the approximate underwater refraction rays. Range: 0–12. Higher values create narrower, more defined light columns; lower values produce a softer, more diffuse glow.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_LIGHT_SHAFT_SOFTNESS" type="integer" default="7">
+    Softness of volumetric underwater light shafts. Range: 0–10. Higher values diffuse the rays into a broader, dreamier glow; lower values keep rays tightly defined.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Underwater Shadow Samples">
+  <ParamField path="SETTING_WATER_SHADOW_SAMPLE" type="integer" default="64">
+    Number of shadow map samples evaluated for underwater shadowing. Valid values: 16–256. Higher values smooth underwater shadow edges at the cost of GPU performance.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_SHADOW_SAMPLE_POOL_SIZE" type="integer" default="8">
+    Size of the sample pool used for underwater shadow accumulation. Valid values: 2–16. Higher values increase shadow quality and reduce banding but also increase GPU cost.
+  </ParamField>
+</Accordion>
+
+## Water Color (Volume)
+
+<Accordion title="Scattering Coefficients">
+  The scattering coefficients control how much of each RGB wavelength scatters (bounces) within the water volume. Higher scattering for a channel means light of that color spreads more widely beneath the surface.
+
+  <ParamField path="SETTING_WATER_SCATTERING_R" type="integer" default="14">
+    Red channel scattering coefficient (percentage, 0–100). Lower values reduce red light scattering, giving the water a blue-green tint at depth.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_SCATTERING_G" type="integer" default="22">
+    Green channel scattering coefficient (percentage, 0–100). Affects the mid-tone blue-green hue of the water.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_SCATTERING_B" type="integer" default="38">
+    Blue channel scattering coefficient (percentage, 0–100). Higher values keep the water appearing blue at greater depths.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_SCATTERING_MULTIPLIER" type="float" default="-9.0">
+    Global multiplier for all scattering coefficients as **2^x**. Range: −15.0 to −5.0. The default of −9.0 (≈ 0.002×) keeps scattering very subtle; increasing toward 0 makes underwater scenes noticeably brighter and murkier with scattered light.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Absorption Coefficients">
+  Absorption controls how quickly each wavelength of light is consumed as it travels through the water column. Higher absorption for a channel means that color disappears faster with depth.
+
+  <ParamField path="SETTING_WATER_ABSORPTION_R" type="integer" default="100">
+    Red channel absorption coefficient (percentage, 0–100). The default of 100 means red light is absorbed very rapidly, which is physically accurate — red is the first color to disappear in real water.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_ABSORPTION_G" type="integer" default="40">
+    Green channel absorption coefficient (percentage, 0–100). Green persists longer than red but fades before blue.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_ABSORPTION_B" type="integer" default="24">
+    Blue channel absorption coefficient (percentage, 0–100). Lower absorption means blue light travels furthest, giving deep water its characteristic color.
+  </ParamField>
+
+  <ParamField path="SETTING_WATER_ABSORPTION_MULTIPLIER" type="float" default="-9.0">
+    Global multiplier for all absorption coefficients as **2^x**. Range: −15.0 to −5.0. Higher values (closer to 0) create murkier, less transparent water with more rapid color loss.
+  </ParamField>
+</Accordion>
+
+## Translucent Block Properties
+
+<Accordion title="Roughness Overrides for Translucent Blocks">
+  These settings apply to translucent blocks such as glass, stained glass, and ice — not to water itself. They allow the roughness of translucent surfaces to be constrained independently from resource pack values.
+
+  <ParamField path="SETTING_TRANSLUCENT_ROUGHNESS_REDUCTION" type="float" default="1.0">
+    Reduces the roughness of translucent blocks relative to their resource pack values. Actual reduction is **2^−x**. Range: 0.0–8.0. Higher values make glass appear smoother and more mirror-like.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_MINIMUM_ROUGHNESS" type="float" default="10.0">
+    The smoothest (most mirror-like) that translucent blocks can appear. Actual roughness floor is **2^−x**. Range: 4.0–16.0. Higher values allow sharper, crisper reflections on clean glass.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_MAXIMUM_ROUGHNESS" type="float" default="5.0">
+    The roughest that translucent blocks can appear. Actual roughness ceiling is **2^−x**. Range: 1.0–16.0. Higher values allow frosted or heavily etched glass effects.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Translucent Absorption">
+  These settings control how translucent blocks absorb and tint light passing through them — for example, how strongly stained glass colors the light behind it.
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_SATURATION" type="float" default="1.0">
+    Saturation of the absorption color tint. Range: 0.0–4.0. Higher values produce more vivid, intense color through stained glass.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_GAMMA" type="float" default="1.0">
+    Power curve applied to the absorption color. Range: 0.0–4.0. Higher values increase contrast in the color tinting.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_ALPHA_CURVE" type="float" default="1.5">
+    Power curve applied to the translucency (alpha) channel. Range: 0.0–4.0. Higher values create sharper transitions between fully transparent and fully tinted areas.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_MULTIPLIER" type="float" default="1.0">
+    Global multiplier for color absorption strength. Range: 0.0–4.0. Higher values deepen and strengthen the color cast of all translucent blocks.
+  </ParamField>
+</Accordion>
+
+## Specular Highlights
+
+<Accordion title="Maximum Specular Luminance">
+  <ParamField path="SETTING_MAXIMUM_SPECULAR_LUMINANCE" type="integer" default="65536">
+    Maximum luminance allowed for specular reflections and highlights, measured in cd/m². Valid values: 256–16777216. Caps the brightness of mirror-like reflections on very smooth surfaces such as still water, preventing overexposed white blowouts from sun glints.
+  </ParamField>
+</Accordion>

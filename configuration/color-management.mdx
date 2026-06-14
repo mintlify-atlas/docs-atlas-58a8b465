@@ -1,0 +1,123 @@
+---
+title: "Color Management and Color Space Configuration"
+sidebarTitle: "Color Management"
+description: "Advanced color management settings for Alpha Piscium: configure input, working, and output color spaces and transfer functions for display-correct rendering."
+---
+
+Alpha Piscium performs all internal lighting and shading calculations in linear light, using well-defined color spaces throughout the full rendering pipeline. The color management settings exposed here control how texture data is interpreted on the way in, which color space is used for internal calculations, and how the final image is encoded for your display on the way out. When configured correctly, these settings ensure that colors in resource pack textures are decoded accurately, that spectral lighting calculations operate in a wide-gamut space, and that the output signal matches your monitor's expected encoding — all of which are prerequisites for accurate, display-referred results.
+
+<Warning>
+  These are advanced settings intended for users with a working understanding of color science. The defaults are carefully calibrated to produce correct results on the vast majority of standard monitors with standard resource packs. **Changing these settings incorrectly can cause heavily shifted or washed-out colors.** If you are unsure, leave all values at their defaults.
+</Warning>
+
+## Texture Input
+
+<Accordion title="Material Color Space and Transfer Function">
+  These two settings describe how the color data stored in resource pack textures should be interpreted before it is used in any lighting calculation.
+
+  <ParamField path="SETTING_MATERIAL_COLOR_SPACE" type="integer" default="1">
+    The color primaries (gamut) of your resource pack textures. Default `1` = sRGB, which is correct for virtually all Minecraft resource packs. Available options:
+
+    | Value | Color Space |
+    |-------|-------------|
+    | 0 | CIE XYZ |
+    | 1 | sRGB |
+    | 2 | Rec. 709 |
+    | 3 | Rec. 2020 |
+    | 4 | DCI-P3 |
+    | 5 | Adobe RGB (1998) |
+    | 6 | ACES2065-1 |
+    | 7 | ACEScg |
+    | 8 | Color McSpaceFace |
+  </ParamField>
+
+  <ParamField path="SETTING_MATERIAL_TRANSFER_FUNC" type="integer" default="3">
+    The gamma/transfer function encoding used in your resource pack textures. Default `3` = sRGB, which is the standard encoding for virtually all Minecraft resource packs. Available options:
+
+    | Value | Transfer Function |
+    |-------|------------------|
+    | 0 | Linear |
+    | 1 | Rec. 601 |
+    | 2 | Rec. 709 |
+    | 3 | sRGB |
+    | 4 | Exponential 2.2 |
+    | 5 | Exponential 2.4 |
+    | 6 | ST 2084 (PQ) |
+    | 7 | HLG |
+  </ParamField>
+</Accordion>
+
+## Internal Processing
+
+<Accordion title="Working Color Space">
+  <ParamField path="SETTING_WORKING_COLOR_SPACE" type="integer" default="8">
+    The color space in which all lighting and shading calculations are performed. Default `8` = ACEScg, which is a wide-gamut, AP1-primaries space designed for high-fidelity scene-linear rendering. ACEScg is recommended because its wide gamut prevents out-of-gamut values during specular highlight calculations, and its linear light properties ensure physically correct additive light blending. Available options:
+
+    | Value | Color Space |
+    |-------|-------------|
+    | 0 | CIE XYZ |
+    | 1 | sRGB |
+    | 2 | Rec. 709 |
+    | 3 | Rec. 2020 |
+    | 4 | DCI-P3 |
+    | 5 | Adobe RGB (1998) |
+    | 6 | ACES2065-1 |
+    | 7 | ACEScg |
+    | 8 | Color McSpaceFace |
+  </ParamField>
+</Accordion>
+
+<Accordion title="Display Render Transform Working Color Space">
+  <ParamField path="SETTING_DRT_WORKING_COLOR_SPACE" type="integer" default="1">
+    The color space used internally during the AgX tone mapping (Display Render Transform) operation. Default `1` = sRGB. Rec. 2020 (`3`) is an alternative that can produce better results with AgX's handling of out-of-gamut scene colors, as its wider gamut gives the operator more room to work with before clipping. Available options mirror `SETTING_WORKING_COLOR_SPACE`:
+
+    | Value | Color Space |
+    |-------|-------------|
+    | 0 | CIE XYZ |
+    | 1 | sRGB |
+    | 2 | Rec. 709 |
+    | 3 | Rec. 2020 |
+    | 4 | DCI-P3 |
+    | 5 | Adobe RGB (1998) |
+    | 6 | ACES2065-1 |
+    | 7 | ACEScg |
+    | 8 | Color McSpaceFace |
+  </ParamField>
+</Accordion>
+
+## Display Output
+
+<Accordion title="Output Color Space and Transfer Function">
+  These settings describe your monitor's characteristics so that Alpha Piscium can encode the final image correctly for display.
+
+  <ParamField path="SETTING_OUTPUT_COLOR_SPACE" type="integer" default="1">
+    The color gamut of your display. Default `1` = sRGB, which is correct for standard monitors. If you have a wide-gamut display, set this to match your display's native gamut (e.g., `4` for DCI-P3 displays). Mismatching this setting will cause colors to appear too saturated or too muted. Available options:
+
+    | Value | Color Space |
+    |-------|-------------|
+    | 0 | CIE XYZ |
+    | 1 | sRGB |
+    | 2 | Rec. 709 |
+    | 3 | Rec. 2020 |
+    | 4 | DCI-P3 |
+    | 5 | Adobe RGB (1998) |
+    | 6 | ACES2065-1 |
+    | 7 | ACEScg |
+    | 8 | Color McSpaceFace |
+  </ParamField>
+
+  <ParamField path="SETTING_OUTPUT_TRANSFER_FUNC" type="integer" default="3">
+    The gamma/transfer function expected by your display. Default `3` = sRGB, correct for nearly all standard monitors. If your display is an HDR display using the PQ electro-optical transfer function, set this to `6` (ST 2084 PQ). Available options:
+
+    | Value | Transfer Function |
+    |-------|------------------|
+    | 0 | Linear |
+    | 1 | Rec. 601 |
+    | 2 | Rec. 709 |
+    | 3 | sRGB |
+    | 4 | Exponential 2.2 |
+    | 5 | Exponential 2.4 |
+    | 6 | ST 2084 (PQ) |
+    | 7 | HLG |
+  </ParamField>
+</Accordion>

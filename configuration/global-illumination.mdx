@@ -1,0 +1,153 @@
+---
+title: "Global Illumination and Denoiser Configuration"
+sidebarTitle: "Global Illumination"
+description: "Tune Alpha Piscium's ReSTIR screen-space global illumination quality, spatial and temporal reuse, and ReBLUR denoiser settings."
+---
+
+Alpha Piscium's global illumination pipeline uses **ReSTIR** (Reservoir-based SpatioTemporal Importance Resampling) to compute high-quality indirect lighting. Each frame, candidate light paths are sampled via screen-space ray tracing, then evaluated against a reservoir that accumulates and resamples paths across both neighboring pixels (spatial reuse) and previous frames (temporal reuse). This approach produces dramatically more light paths per pixel than naive Monte Carlo sampling at the same cost. The resulting noisy signal is then cleaned up by the **ReBLUR** denoiser, which applies spatial filtering, temporal accumulation, and a fast history buffer to produce a stable, smooth indirect lighting signal with minimal lag and ghosting.
+
+---
+
+## Screen-Space Ray Tracing
+
+These settings control how candidate GI rays are traced against the depth buffer. Screen-space tracing is fast but is limited to surfaces visible on screen; it is complemented by an environment probe for off-screen geometry.
+
+<Accordion title="Trace Step Counts">
+  <ParamField path="SETTING_GI_INITIAL_SST_STEPS" type="number" default="128">
+    Number of steps taken during the initial GI sampling screen-space trace. Higher values improve the accuracy of ray–surface intersections and reduce missed hits, but reduce performance. Valid values: `16`, `24`, `32`, `48`, `64`, `96`, `128`, `192`, `256`.
+  </ParamField>
+
+  <ParamField path="SETTING_GI_VALIDATE_SST_STEPS" type="number" default="64">
+    Number of steps used for the validation sampling screen-space trace. These rays confirm or discard reservoir samples from previous frames and are less critical than initial rays, so a lower value is acceptable. Higher values still improve quality. Valid values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`, `96`, `128`, `192`, `256`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Trace Thickness">
+  <ParamField path="SETTING_GI_SST_THICKNESS" type="number" default="0.1">
+    Assumed thickness for screen-space tracing. This value determines how far behind a depth-buffer surface a ray is still considered to have intersected it. Too low causes rays to pass through thin geometry; too high can produce light leaking through thick surfaces. Range `0.01`–`0.5`.
+  </ParamField>
+</Accordion>
+
+---
+
+## Environment Probe
+
+When a GI ray exits the screen or reaches the maximum trace distance, Alpha Piscium falls back to a lower-frequency environment probe for that pixel's indirect contribution. These settings control the blending between the full screen-space result and the probe fallback.
+
+<Accordion title="Probe Fade Distance">
+  <ParamField path="SETTING_GI_PROBE_FADE_START" type="number" default="4">
+    Distance in blocks from the camera where environment probe lighting begins to fade in, blending with the screen-space result. Valid values: `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`.
+  </ParamField>
+
+  <ParamField path="SETTING_GI_PROBE_FADE_END" type="number" default="32">
+    Distance in blocks where environment probe lighting is fully used and screen-space GI is completely faded out. Valid values: `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512`, `1024`.
+  </ParamField>
+
+  <ParamField path="SETTING_GI_MC_SKYLIGHT_ATTENUATION" type="boolean" default="true">
+    Uses Minecraft's built-in skylight values to attenuate sky lighting in enclosed spaces. This prevents underground areas and the interiors of buildings from receiving unrealistically bright sky contribution.
+  </ParamField>
+</Accordion>
+
+---
+
+## ReSTIR Resampling
+
+ReSTIR improves GI quality by reusing high-quality light paths across neighboring pixels and across time. These settings balance quality against responsiveness and potential ghosting.
+
+<Accordion title="Temporal Reuse">
+  <ParamField path="SETTING_GI_TEMPORAL_REUSE_LIMIT" type="number" default="24">
+    Limits how many previous frames can contribute to the current frame's GI reservoir. Higher values improve lighting quality and stability by accumulating more paths, but increase the latency with which lighting responds to scene changes (e.g., a torch being placed). Range `2`–`64`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Spatial Reuse">
+  <ParamField path="SETTING_GI_SPATIAL_REUSE" type="boolean" default="true">
+    Enables spatial reservoir reuse, sharing GI samples from neighboring pixels. This greatly increases the effective sample count per pixel at low cost and is recommended to keep enabled.
+  </ParamField>
+
+  <ParamField path="SETTING_GI_SPATIAL_REUSE_COUNT" type="number" default="6">
+    Number of neighboring pixels whose reservoirs are reused per pixel per frame. Higher values improve quality but increase GPU cost. Range `1`–`8`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Decorrelation">
+  <ParamField path="SETTING_GI_DECORRELATE" type="boolean" default="false">
+    Enables ReSTIR duplication map decorrelation. This can reduce fireflies and structured noise artifacts at the cost of some performance. Disabled by default; enable it if you see persistent bright spots in indirect lighting.
+  </ParamField>
+</Accordion>
+
+---
+
+## ReBLUR Denoiser
+
+The ReBLUR denoiser removes the noise inherent in stochastic GI sampling. It works in three layers: a spatial filter that blurs across nearby pixels using geometry-aware weights, a temporal accumulation buffer that averages results over many frames, and a fast history buffer that keeps the result responsive to rapid changes.
+
+### Spatial Filtering
+
+<Accordion title="Spatial Filter Settings">
+  <ParamField path="SETTING_DENOISER_SPATIAL" type="boolean" default="true">
+    Enables the spatial denoising filter. Applying a spatially-aware blur over the GI buffer is essential for producing a clean image at practical sample counts; disabling it will result in heavy noise.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_SPATIAL_SAMPLES" type="number" default="8">
+    Number of samples used in the main spatial denoising pass. Higher values produce smoother results at the cost of GPU time. Range `1`–`16`.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_SPATIAL_SAMPLES_POST" type="number" default="8">
+    Number of samples used in the post spatial denoising pass (applied after temporal accumulation). Range `1`–`16`.
+  </ParamField>
+</Accordion>
+
+### Temporal Accumulation
+
+<Accordion title="Temporal Accumulation Settings">
+  <ParamField path="SETTING_DENOISER_ACCUM" type="boolean" default="true">
+    Enables temporal accumulation of GI results across multiple frames. This is the primary mechanism for achieving a clean result — disabling it forces the spatial filter to do all the work alone, resulting in significantly more noise.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_HISTORY_LENGTH" type="number" default="64">
+    Number of frames blended together in the main temporal history buffer. Higher values produce cleaner, stabler indirect lighting but increase ghosting artifacts when the scene changes. Valid values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`, `96`, `128`, `192`, `256`.
+  </ParamField>
+</Accordion>
+
+### Fast History & Clamping
+
+<Accordion title="Fast History Settings">
+  <ParamField path="SETTING_DENOISER_FAST_HISTORY_CLAMPING" type="boolean" default="true">
+    Clamps the main temporal history to the fast history to reduce ghosting artifacts. When the scene changes, the fast history adapts quickly and prevents the main buffer from holding onto stale lighting.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_FAST_HISTORY_LENGTH" type="number" default="16">
+    Number of frames accumulated into the fast history buffer. This short-window buffer is used to keep the denoiser responsive to scene changes. Valid values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`, `96`, `128`, `192`, `256`.
+  </ParamField>
+</Accordion>
+
+### Stability & Artifact Suppression
+
+<Accordion title="Flicker and Firefly Suppression">
+  <ParamField path="SETTING_DENOISER_FLICKER_SUPPRESSION" type="number" default="3">
+    Reduces GI flickering caused by unstable reservoir samples. Higher values increase suppression but can introduce lighting lag where indirect illumination is slow to update after scene changes. Range `0`–`10`.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_ANTI_FIREFLY" type="boolean" default="true">
+    Enables RCRS (Robust Contrast-based Range Shrinkage) firefly suppression. Reduces bright noise artifacts — single pixels that are much brighter than their neighbors — in the final GI result.
+  </ParamField>
+</Accordion>
+
+### Disocclusion Fix
+
+When the camera moves, newly visible surfaces have no temporal history and appear noisy until the accumulation buffer catches up. The disocclusion fix runs an extra spatial gather over these regions to suppress that heavy noise.
+
+<Accordion title="Disocclusion Fix Settings">
+  <ParamField path="SETTING_DENOISER_HISTORY_FIX" type="boolean" default="true">
+    Enables the disocclusion fix pass. Recommended to keep enabled — without it, moving the camera produces visible splotchy noise on newly revealed geometry.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_HISTORY_FIX_NORMAL_WEIGHT" type="number" default="5">
+    Weight of surface normal similarity when performing the disocclusion fix gather. Higher values restrict the fix to pixels with very similar normals, reducing unwanted blurring across surface boundaries but potentially leaving more noise at edges. Range `0`–`10`.
+  </ParamField>
+
+  <ParamField path="SETTING_DENOISER_HISTORY_FIX_DEPTH_WEIGHT" type="number" default="5">
+    Weight of depth similarity when performing the disocclusion fix gather. Higher values restrict the fix to pixels at similar depth, reducing blurring between foreground and background surfaces. Range `0`–`10`.
+  </ParamField>
+</Accordion>

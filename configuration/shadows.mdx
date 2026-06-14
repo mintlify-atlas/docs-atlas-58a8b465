@@ -1,0 +1,116 @@
+---
+title: "Shadow Configuration: RTWSM and PCSS Settings"
+sidebarTitle: "Shadows"
+description: "Configure Alpha Piscium's adaptive shadow mapping (RTWSM) and soft shadow quality (PCSS), including resolution, distance, and warping parameters."
+---
+
+Alpha Piscium's shadow system combines two advanced techniques to deliver sharp, detailed shadows close to the player and realistically soft shadow edges at distance. **RTWSM** (Rectilinear Texture Warping Shadow Mapping) dynamically redistributes shadow-map texels so that the most visually important parts of the scene — the area in front of you, surfaces facing the camera, shadow edges — receive more detail. **PCSS** (Percentage Closer Soft Shadows) then filters those shadow samples with a variable-radius kernel, producing wide, blurred penumbras far from a caster and crisp contact shadows directly beneath objects. Together they make Alpha Piscium's shadows both perceptually accurate and highly configurable.
+
+---
+
+## Base Shadow Settings
+
+<Accordion title="Resolution and Distance">
+  <ParamField path="SETTING_SHADOW_MAP_RESOLUTION" type="number" default="2048">
+    Higher values produce sharper, more detailed shadows but reduce performance. Valid values: `1024`, `2048`, `3072`, `4096`.
+  </ParamField>
+
+  <ParamField path="shadowDistance" type="number" default="512.0">
+    How far from the player shadow maps are rendered, in blocks.
+
+    | Value | Equivalent |
+    |-------|------------|
+    | `64.0` | 4 chunks |
+    | `128.0` | 8 chunks |
+    | `192.0` | 12 chunks |
+    | `256.0` | 16 chunks |
+    | `384.0` | 24 chunks |
+    | `512.0` | 32 chunks |
+  </ParamField>
+</Accordion>
+
+---
+
+## RTWSM — Rectilinear Texture Warping Shadow Mapping
+
+RTWSM is an advanced technique that adaptively allocates more shadow detail based on both the view and the scene. Instead of distributing shadow-map texels uniformly across the render distance, it warps the shadow projection so that regions of high visual importance — surfaces the camera is looking at, areas near the shadow boundary — receive a disproportionately large share of the available texels. This effectively delivers higher-than-nominal shadow quality near the player without requiring a larger shadow map.
+
+RTWSM splits importance analysis into two complementary passes: **Forward** analysis (what the camera is looking towards) and **Backward** analysis (information coming from the light source, such as which surfaces are lit and where shadow edges fall).
+
+### Forward Importance Analysis
+
+<Accordion title="Forward Warping Parameters">
+  <ParamField path="SETTING_RTWSM_F" type="boolean" default="true">
+    Enables forward importance analysis. When active, the shadow warp allocates more texels in the view direction.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_F_BASE" type="number" default="1.0">
+    Base importance weight for the forward analysis pass. Higher values increase the overall influence of the forward direction on shadow warping. Range `0.1`–`10.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_F_MIN" type="number" default="-20">
+    Minimum importance value for forward importance analysis. The actual minimum is calculated as `2^x`. Range `-20`–`0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_F_D" type="number" default="0.5">
+    Reduces weight based on distance from the camera. Larger values mean slower decay — distant areas retain more importance. Range `0.0`–`2.0`.
+  </ParamField>
+</Accordion>
+
+### Backward Importance Analysis
+
+<Accordion title="Backward Warping Parameters">
+  <ParamField path="SETTING_RTWSM_B" type="boolean" default="true">
+    Enables backward importance analysis. When active, surfaces lit by the sun/moon and shadow edges contribute to the warp.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_BASE" type="number" default="5.0">
+    Base importance weight for the backward analysis pass. Higher values increase the overall influence of light-facing surfaces. Range `0.1`–`10.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_MIN" type="number" default="-10">
+    Minimum importance value for backward importance analysis. The actual minimum is calculated as `2^x`. Range `-20`–`0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_D" type="number" default="0.6">
+    Reduces weight based on distance. Larger values mean slower decay, giving distant lit surfaces more importance. Range `0.0`–`2.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_P" type="number" default="1.0">
+    Adds extra importance weight to surfaces perpendicular to the light direction (i.e., surfaces the light grazes across). Range `0.0`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_SN" type="number" default="2.0">
+    Adds extra importance weight to surfaces directly facing the camera. Concentrates texels on the most visible geometry. Range `0.0`–`10.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_RTWSM_B_SE" type="number" default="0.0">
+    Adds extra importance weight for shadow edges. Higher values dedicate more texels to the boundary between lit and shadowed areas, sharpening penumbras. Range `0.0`–`10.0`.
+  </ParamField>
+</Accordion>
+
+---
+
+## PCSS — Percentage Closer Soft Shadows
+
+PCSS produces realistic soft shadow edges whose blur radius depends on how far a surface is from its shadow caster. A block sitting directly on the ground casts a sharp contact shadow; the same block suspended in the air casts a large, diffuse penumbra. The blocker search phase first estimates the average depth of nearby occluders, and the sampling phase then applies a kernel of that computed size.
+
+<Accordion title="PCSS Quality">
+  <ParamField path="SETTING_PCSS_BLOCKER_SEARCH_COUNT" type="number" default="4">
+    Number of samples used to determine shadow softness (the blocker search). Higher values improve blur-radius accuracy but reduce performance. Valid values: `1`, `2`, `3`, `4`, `6`, `8`, `12`, `16`.
+  </ParamField>
+
+  <ParamField path="SETTING_PCSS_SAMPLE_COUNT" type="number" default="16">
+    Number of samples used for PCSS shadow filtering. Higher values improve quality by reducing banding in soft shadows but reduce performance. Valid values: `4`, `6`, `8`, `12`, `16`, `24`, `32`, `48`, `64`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Penumbra Size">
+  <ParamField path="SETTING_PCSS_BPF" type="number" default="0.0">
+    Base Penumbra Factor — a constant amount of blur applied to all shadows regardless of caster distance. Increase this to add a minimum softness even for contact shadows. Range `0.0`–`10.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_PCSS_VPF" type="number" default="1.0">
+    Variable Penumbra Factor — how much shadows blur as a function of distance from the caster. This value is multiplied by the angular size of the sun, so a larger sun (configured in Sun & Moon settings) automatically produces softer shadows. Range `0.0`–`2.0`.
+  </ParamField>
+</Accordion>

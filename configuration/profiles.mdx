@@ -1,0 +1,32 @@
+---
+title: "Quality Profiles: Low to Insane Presets"
+sidebarTitle: "Profiles"
+description: "Alpha Piscium ships with six quality presets from Low to Insane. Learn what each profile enables and which one to choose for your GPU."
+---
+
+Alpha Piscium ships with six built-in quality profiles that act as one-click presets, simultaneously adjusting shadow resolution, GI sample counts, denoiser settings, soft-shadow quality, and more across the entire shader. Rather than asking you to tune dozens of interdependent settings by hand, profiles give you a coherent starting point tuned by the author. You can always override individual settings after applying a profile — the profile is a starting point, not a lock.
+
+<Tip>
+  **Ultra is the intended experience.** The author designed Alpha Piscium's look and feel around the Ultra preset. If your GPU can sustain it, start here before experimenting with anything else.
+</Tip>
+
+## Available Profiles
+
+| Profile | Priority |
+|---------|----------|
+| **Low** | Bare minimum rendering. Potato mode — not recommended for normal play. Disables or minimises most advanced features to squeeze out frames on very weak hardware. |
+| **Medium** | Baseline performance mode. Enables core features at reduced quality, suitable for mid-range hardware that cannot yet reach High. |
+| **High** | Balanced quality and performance. A practical everyday preset for mid-to-high-end GPUs that want good visuals without a heavy frame-time cost. |
+| **Ultra** | The true Alpha Piscium experience as it should be. Full-quality GI, shadows, and materials at settings the author considers correct. Recommended as the default starting point. |
+| **Extreme** | An even better experience at some cost. Pushes sample counts and denoiser history beyond Ultra for noticeably improved lighting stability and shadow fidelity, at a meaningful GPU performance cost. |
+| **Insane** | Maximum quality. Every configurable knob turned to its highest setting. Intended for high-end hardware, benchmarking, or screenshot work rather than interactive play. |
+
+<Note>
+  Selecting a profile overwrites all affected settings with the profile's preset values. If you have made manual changes, applying a different profile will reset those settings. After choosing a profile you are free to tweak any individual option — your changes persist until you apply another profile or manually reset them.
+</Note>
+
+## Choosing a Profile
+
+Start by applying **Ultra** and checking your frame rate. If performance is insufficient, step down to **High**, then **Medium**. Only resort to **Low** if no other profile is playable. Conversely, if Ultra runs comfortably and you want even cleaner indirect lighting with less noise, try **Extreme** before committing to the full cost of **Insane**.
+
+Because profiles touch nearly every subsystem — shadows, global illumination, materials, post-processing — they are the most impactful single change you can make. Fine-grained per-category tuning (shadow resolution, GI trace steps, PCSS sample count, etc.) is documented in the remaining configuration pages and is best done after settling on a base profile.

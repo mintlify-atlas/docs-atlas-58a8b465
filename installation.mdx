@@ -1,0 +1,68 @@
+---
+title: "Install Alpha Piscium with Iris Shaders"
+sidebarTitle: "Installation"
+description: "Step-by-step guide to installing Alpha Piscium in Minecraft using the Iris shader loader. Covers downloading, placing, and activating the shaderpack."
+---
+
+Installing Alpha Piscium takes only a few minutes. The shaderpack is distributed as a single ZIP file and is loaded through Iris, a dedicated shader loader for Minecraft. You do not need to unzip the file — Iris reads shader ZIPs directly. Follow the steps below to go from a fresh Minecraft installation to a fully running Alpha Piscium setup.
+
+<Note>
+  Alpha Piscium requires **Iris version 1.7 or higher**. Earlier versions of Iris will fail to load the shaderpack. Make sure you download the correct Iris version for your Minecraft release before proceeding.
+</Note>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Download Alpha Piscium">
+    Download the latest Alpha Piscium ZIP file from one of the official distribution channels:
+
+    - [**Modrinth**](https://modrinth.com/shader/alpha-piscium) — the primary release channel, always up to date
+    - [**GitHub Releases**](https://github.com/Luna5ama/Alpha-Piscium/releases) — alternative source for the same official builds
+
+    Do not unzip the downloaded file. Iris loads shaderpacks directly from their ZIP archives.
+  </Step>
+
+  <Step title="Install Iris 1.7 or Higher">
+    Download and install [Iris](https://www.irisshaders.dev/download) for your version of Minecraft. The Iris installer will set up a dedicated Iris profile in your Minecraft launcher automatically, along with the required version of Sodium.
+
+    Make sure to select **Iris version 1.7 or higher** on the download page. Alpha Piscium will not load on earlier Iris versions.
+  </Step>
+
+  <Step title="Open the Minecraft Launcher and Select the Iris Profile">
+    Open your Minecraft launcher. In the profile selector (bottom-left of the launcher), choose the **Iris** profile that was created during installation. Make sure it targets the same Minecraft version you intend to play.
+  </Step>
+
+  <Step title="Launch Minecraft">
+    Click **Play** to launch Minecraft with the Iris profile. Wait for the game to fully load to the main menu before continuing.
+  </Step>
+
+  <Step title="Open the Shader Pack Folder">
+    From the Minecraft main menu, navigate to:
+
+    **Options → Video Settings → Shader Packs**
+
+    Then click **Open Shader Pack Folder**. This opens the `.minecraft/shaderpacks` directory in your system file browser.
+  </Step>
+
+  <Step title="Move the ZIP File into the Shaderpacks Folder">
+    Move or copy the Alpha Piscium ZIP file you downloaded in Step 1 into the `.minecraft/shaderpacks` folder that just opened. You do not need to extract it.
+  </Step>
+
+  <Step title="Select Alpha Piscium in the Shaders List">
+    Return to Minecraft. In the **Shader Packs** screen, you should now see the Alpha Piscium ZIP listed. Click on it to select it. When a shaderpack is selected in Iris, its filename turns **yellow** in the list — this confirms the selection is active.
+  </Step>
+
+  <Step title="Apply and Load">
+    Click **Done** or **Apply**. Iris will compile and load the shaderpack. This may take up to a minute on the first load while shaders are compiled. Once complete, Alpha Piscium will be active in your world.
+  </Step>
+</Steps>
+
+## After Installation
+
+<Note>
+  For full, physically accurate lighting — especially at night — Alpha Piscium works best alongside a PBR resource pack that provides normal maps and specular data. Without one, indirect lighting at night may appear very dark. For a vanilla-style look, **SPBR** is a good starting point; for higher detail, consider **Patrix**.
+</Note>
+
+<Tip>
+  If the shaderpack fails to load or you encounter errors, press **Ctrl+D** on the Iris shaderpack selection screen, then try reloading the shaderpack. This triggers a cache clear and often resolves transient compilation failures. If the error persists, the error message will reference relevant files in `.minecraft/patched_shaders` that can help diagnose the issue.
+</Tip>

@@ -1,0 +1,161 @@
+---
+title: "Material Settings: PBR, Emissives, and Surface Properties"
+sidebarTitle: "Materials"
+description: "Configure PBR material mode, emissive brightness, normal mapping, surface roughness, reflectivity, and subsurface scattering in Alpha Piscium."
+---
+
+Alpha Piscium's material pipeline covers everything from how block textures are interpreted as physically-based surfaces to how light scatters beneath semi-translucent materials. The settings below control PBR resource-pack compatibility, the brightness and color of emissive blocks, the intensity of surface normals, the reflectivity and roughness bounds for solid and translucent blocks, and subsurface scattering quality. Most numeric fields use exponential scales (noted per-setting) so that small slider changes correspond to perceptually uniform shifts in appearance.
+
+---
+
+## PBR Material Mode
+
+<Accordion title="SETTING_PBR_MATERIAL — PBR Materials">
+  <ParamField path="SETTING_PBR_MATERIAL" type="string" default="LabPBR (Auto)">
+    Enables Physically Based Rendering features like normal mapping, specular reflections, and subsurface scattering on blocks. Requires compatible resource packs.
+
+    | Value | Behaviour |
+    |-------|-----------|
+    | `Built-in` | Uses Alpha Piscium's own built-in material data. No PBR resource pack required. |
+    | `LabPBR (Auto)` | Automatically detects and uses LabPBR data when a compatible pack is present; falls back to built-in otherwise. |
+    | `LabPBR (Force)` | Always reads LabPBR channels even if no pack is detected. Use when Auto fails to recognise your pack. |
+  </ParamField>
+</Accordion>
+
+---
+
+## Emissive Settings
+
+<Accordion title="Emissive Brightness">
+  <ParamField path="SETTING_EMISSIVE_STRENGTH" type="number" default="4.0">
+    Global brightness multiplier for all light-emitting materials and blocks. Adjustable from `0.0` to `16.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_PARTICLE_EMISSIVE_STRENGTH" type="number" default="0.0">
+    Brightness multiplier for glowing particles like torches and fires. Range `0.0`–`1.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_ENTITY_EMISSIVE_STRENGTH" type="number" default="0.2">
+    Brightness multiplier for glowing entities. Range `0.0`–`1.0`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Emissive Curve Controls">
+  <ParamField path="SETTING_EMISSIVE_PBR_VALUE_CURVE" type="number" default="0.9">
+    Adjusts contrast of emissive values from PBR resource packs. Higher values create stronger differences between bright and dim areas. Range `0.1`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_EMISSIVE_ALBEDO_COLOR_CURVE" type="number" default="2.0">
+    Controls color intensity of emissive materials. Higher values produce more vibrant, saturated colors. Range `0.1`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_EMISSIVE_ALBEDO_LUM_CURVE" type="number" default="0.0">
+    Controls how much the base texture brightness affects emission. Higher values make brighter textures glow more intensely. Recommended for packs that have "binary" emissive values. Range `-4.0`–`4.0`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Enchanted Armor Glow">
+  <ParamField path="SETTING_EMISSIVE_ARMOR_GLINT_MULT" type="number" default="-10">
+    Brightness of the enchanted armor glint effect. The actual multiplier applied is `2^x`. Range `-20`–`0`.
+  </ParamField>
+
+  <ParamField path="SETTING_EMISSIVE_ARMOR_GLINT_CURVE" type="number" default="1.3">
+    Adjusts contrast of enchanted armor glint. Higher values make the brightest parts more prominent. Range `0.1`–`2.0`.
+  </ParamField>
+</Accordion>
+
+---
+
+## Normal Mapping
+
+<Accordion title="Normal Mapping Settings">
+  <ParamField path="SETTING_NORMAL_MAPPING" type="boolean" default="true">
+    Enables surface detail from normal maps, adding depth and texture to blocks without additional geometry.
+  </ParamField>
+
+  <ParamField path="SETTING_NORMAL_MAPPING_STRENGTH" type="number" default="0.0">
+    Controls the intensity of surface detail effects. Higher values increase depth perception. The actual strength applied is `2^x`. Range `-5.0`–`5.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_TBN_PACKING" type="boolean" default="true">
+    Optimizes terrain rendering by packing normal and tangent vertex attributes more tightly. Disable this if you use a mod that adds smooth surface normals.
+  </ParamField>
+</Accordion>
+
+---
+
+## Surface Reflectivity & Roughness
+
+<Accordion title="Reflectivity (F0)">
+  <ParamField path="SETTING_MINIMUM_F0" type="number" default="12">
+    Sets the reflectivity (F0) lower bound for all materials. Higher values make surfaces more reflective overall. The actual F0 value is calculated as `2^-x`. Range `4`–`32`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Solid Block Roughness">
+  <ParamField path="SETTING_SOLID_MINIMUM_ROUGHNESS" type="number" default="6">
+    The smoothest (most mirror-like) that solid blocks can appear. Higher values allow sharper reflections. The actual roughness value is calculated as `2^-x`. Range `4`–`16`.
+  </ParamField>
+
+  <ParamField path="SETTING_SOLID_MAXIMUM_ROUGHNESS" type="number" default="5">
+    The roughest (most diffuse) that solid blocks can appear. Higher values allow more matte surfaces. The actual roughness value is calculated as `1 - 2^-x`. Range `2`–`16`.
+  </ParamField>
+</Accordion>
+
+---
+
+## Subsurface Scattering
+
+Subsurface scattering (SSS) simulates light penetrating the surface of semi-translucent materials — leaves, skin, candles, and similar blocks — and diffusing beneath before exiting. Higher sample counts and wider ranges improve realism at a cost to GPU performance.
+
+<Accordion title="SSS Quality & Range">
+  <ParamField path="SETTING_SSS_SAMPLE_COUNT" type="number" default="6">
+    Number of samples used for subsurface scattering. Higher values improve quality but reduce performance. Valid values: `2`, `3`, `4`, `6`, `8`, `12`, `16`.
+  </ParamField>
+
+  <ParamField path="SETTING_SSS_DIFFUSE_RANGE" type="number" default="0.3">
+    Higher values create a more diffused, softer appearance as light spreads further laterally beneath the surface. Range `0.0`–`2.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_SSS_DEPTH_RANGE" type="number" default="0.3">
+    How deep light penetrates into the material. Higher values simulate thicker, more translucent materials. Range `0.0`–`2.0`.
+  </ParamField>
+</Accordion>
+
+---
+
+## Translucent Absorption
+
+These settings govern how colored translucent blocks (glass, stained glass, ice) tint and absorb light passing through them.
+
+<Accordion title="Translucent Absorption Controls">
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_SATURATION" type="number" default="1.0">
+    Controls translucent block color absorption saturation. Higher values create more vivid color tinting. Range `0.0`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_GAMMA" type="number" default="1.0">
+    A power curve applied on translucent blocks' absorption color. Higher values create more contrasted color tinting. Range `0.0`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_ALPHA_CURVE" type="number" default="1.5">
+    A power curve applied on translucent blocks' alpha (translucency) channel. Higher values create more contrasted translucency. Range `0.0`–`4.0`.
+  </ParamField>
+
+  <ParamField path="SETTING_TRANSLUCENT_ABSORPTION_MULTIPLIER" type="number" default="1.0">
+    Global multiplier for color absorption on translucent blocks. Higher values create stronger color tinting. Range `0.0`–`4.0`.
+  </ParamField>
+</Accordion>
+
+---
+
+## Fire & Lava Temperature
+
+<Accordion title="Block Light Color Temperature">
+  <ParamField path="SETTING_FIRE_TEMPERATURE" type="number" default="1400">
+    Controls the color temperature of fire in Kelvin. Default: 1400 K (based on real fire). Higher values produce whiter/bluer light. Range `100`–`5000` K.
+  </ParamField>
+
+  <ParamField path="SETTING_LAVA_TEMPERATURE" type="number" default="1300">
+    Controls the color temperature of lava in Kelvin. Default: 1300 K (based on real lava). Higher values produce whiter/bluer light. Range `100`–`5000` K.
+  </ParamField>
+</Accordion>

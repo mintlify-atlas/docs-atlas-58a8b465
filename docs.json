@@ -1,72 +1,79 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Alpha Piscium",
+  "theme": "willow",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#7c7c7c",
+    "light": "#060606",
+    "dark": "#c6c6c6"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
+  "favicon": "https://media.brand.dev/8d2517ab-a428-45af-9fa5-9b0a8f6631da.svg",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "https://media.brand.dev/ece2bcc3-808c-43af-99d5-bc279a918026.svg",
+    "dark": "https://media.brand.dev/ece2bcc3-808c-43af-99d5-bc279a918026.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/Luna5ama/alpha-piscium"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/Luna5ama/alpha-piscium"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "requirements"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/profiles",
+              "configuration/materials",
+              "configuration/shadows",
+              "configuration/global-illumination",
+              "configuration/atmosphere",
+              "configuration/water",
+              "configuration/clouds",
+              "configuration/post-processing",
+              "configuration/color-management"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/pbr-resource-packs",
+              "guides/performance-tuning",
+              "guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Technical Reference",
+            "pages": [
+              "reference/rendering-pipeline",
+              "reference/techniques",
+              "reference/compatibility"
+            ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

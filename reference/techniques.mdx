@@ -1,0 +1,214 @@
+---
+title: "Rendering Techniques Used in Alpha Piscium"
+sidebarTitle: "Techniques"
+description: "Deep dive into the graphics research and algorithms behind Alpha Piscium: ReSTIR GI, atmospheric scattering, RTWSM shadows, Nubis clouds, and more."
+---
+
+Alpha Piscium achieves its visual quality by implementing a collection of research-grade rendering algorithms, each selected for its physical accuracy and real-time performance characteristics. The techniques described here are grounded in published academic papers and industry presentations; where a specific source exists, it is cited so you can explore the underlying research further.
+
+## Global Illumination
+
+<Card title="ReSTIR SSGI" icon="lightbulb">
+**Reservoir-based SpatioTemporal Importance Resampling for Screen-Space Global Illumination**
+
+ReSTIR SSGI is the primary source of indirect lighting in Alpha Piscium. It adapts the reservoir-sampling framework introduced by Bitterli et al. (NVIDIA, SIGGRAPH 2020) to screen-space ray tracing, allowing real-time estimation of the indirect illumination integral with far fewer rays than brute-force path tracing.
+
+**How it works:**
+- **Initial sample** — For each pixel, one or more candidate rays are generated and traced against the HiZ depth pyramid. The hit radiance is stored as a sample in a per-pixel *reservoir* (a compact data structure that maintains a running weighted average).
+- **Temporal reuse** — The previous frame's reservoirs are reprojected onto the current frame. Valid history reservoirs are merged with the current sample, multiplying the effective sample count by the temporal reuse limit with no additional ray cost.
+- **Spatial reuse** — Multiple passes (`composite28`–`composite35`, up to 8 rounds) reuse reservoirs from spatially nearby pixels. Each round further increases the effective sample budget. The count is user-configurable via `SETTING_GI_SPATIAL_REUSE_COUNT`.
+- **Shading** — The final merged reservoir is evaluated to produce the indirect irradiance written into the GI buffer.
+
+The spatial reuse passes use ray sorting (`GIReSTIRSpatialReuseRaySort`) to improve GPU coherence. An optional duplication-map decorrelation pass (`GIReSTIRDuplicationMapDecorrelate`) can reduce structured noise at the cost of some performance.
+
+**Reference:** [Spatiotemporal Reservoir Resampling for Real-Time Ray Tracing with Dynamic Direct Lighting](https://research.nvidia.com/sites/default/files/pubs/2020-07_Spatiotemporal-reservoir-resampling/ReSTIR.pdf) — Bitterli et al., SIGGRAPH 2020.
+</Card>
+
+<Card title="ReBLUR GI Denoiser" icon="wand-magic-sparkles">
+**Ray Tracing Gems II — Chapter 49**
+
+Raw ReSTIR output is still noisy due to the low per-pixel ray count. Alpha Piscium denoises the GI buffer using ReBLUR (Recurrent Blur), a spatiotemporal denoiser designed specifically for ray-traced signals.
+
+The denoiser pipeline runs across several compute passes:
+- **Reproject** — reprojects the previous denoised frame using the current frame's motion vectors.
+- **Accumulate** — blends the current and reprojected frames with an adaptive weighting that tracks how many frames of valid history are available per pixel.
+- **Anti-Firefly** (optional, `SETTING_DENOISER_ANTI_FIREFLY`) — uses Robust Contrast-based Range Shrinkage (RCRS) to suppress bright outlier samples before spatial filtering.
+- **Edge classification / dilation** — builds a mask that prevents blurring across geometric discontinuities.
+- **Blur + Post-Blur** (optional, `SETTING_DENOISER_SPATIAL`) — applies a cross-bilateral spatial filter in two rounds.
+- **History Fix** — repairs heavily disoccluded pixels (e.g. around fast-moving objects) that have insufficient temporal history.
+
+User-facing controls include temporal history length, fast-history clamping, flicker suppression strength, and spatial sample counts for both the main and post blur passes.
+
+**Reference:** [ReBLUR: A Hierarchical Recurrent Denoiser](https://doi.org/10.1007/978-1-4842-7185-8_49) — Zhdan, Ray Tracing Gems II, Chapter 49, 2021.
+</Card>
+
+---
+
+## Atmosphere & Sky
+
+<Card title="Physically-Based Atmospheric Scattering" icon="cloud-sun">
+**Unreal Engine Sky Atmosphere Rendering Technique**
+
+The atmosphere is modelled as a spherical shell of participating media surrounding the planet. Scattering is computed using two physical models:
+
+- **Rayleigh scattering** — models interactions between light and air molecules (N₂, O₂). Rayleigh scattering has a λ⁻⁴ wavelength dependence, producing the blue colour of the daytime sky and the red/orange tones of sunsets. Coefficients are configurable under *Rayleigh Coefficients* settings.
+- **Mie scattering** — models interactions with aerosol particles (haze, fog, dust). Mie scattering is nearly wavelength-independent, contributing the milky white haze around bright light sources. Controlled via *Mie Coefficients* settings.
+- **Ozone absorption** — a thin ozone layer absorbs certain wavelengths, contributing to the dark blue of the zenith sky.
+
+To make evaluation real-time, the atmosphere pre-computes three LUTs every frame during the begin passes:
+1. **Transmittance LUT** — stores the optical depth between any point and the top of the atmosphere.
+2. **Sky View LUT** — stores the single-scattering sky radiance as seen from the camera, indexed by view direction.
+3. **Multi-scattering LUT** — approximates second-order and higher scattering contributions.
+
+These LUTs are sampled during direct lighting and sky composite without re-integrating the full scattering equations per pixel.
+
+**Reference:** [A Scalable and Production Ready Sky and Atmosphere Rendering Technique](https://sebh.github.io/publications/egsr2020.pdf) — Hillaire, EGSR 2020.
+</Card>
+
+<Card title="Epipolar Sampling for Light Shafts" icon="sun">
+**Practical Implementation of Light Scattering Effects — GDC 2013**
+
+Volumetric light scattering (god rays / light shafts) is computed using epipolar sampling rather than a naive full-screen ray march, enabling high-quality results at a fraction of the cost.
+
+**How it works:**
+1. The screen is divided into epipolar lines — lines that all pass through the sun's screen-space projection point.
+2. Samples are concentrated along these epipolar lines where the integrand varies most. Fewer samples are placed where visibility and transmittance are locally smooth.
+3. Two separate passes (`EpipolarScatteringAir.comp.glsl`, `EpipolarScatteringWater.comp.glsl`) integrate in-scattering through air and water volumes respectively.
+4. The epipolar buffer is then unwarped back to screen space using bilinear interpolation, filling all pixels from the sparse epipolar samples.
+
+This approach gives accurate light shafts through foliage, clouds, and water at a cost proportional to the number of epipolar slices rather than the total pixel count.
+
+**Reference:** [Practical Implementation of Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary Trees](https://gdcvault.com/play/1018227/Practical-Implementation-of-Light-Scattering) — Engelhardt & Dachsbacher, GDC 2013.
+</Card>
+
+---
+
+## Shadows
+
+<Card title="RTWSM — Rectilinear Texture Warping Shadow Maps" icon="map">
+**Adaptive Shadow Map Allocation — I3D 2012**
+
+Standard shadow maps waste resolution on distant regions of the shadow map that project to only a few pixels on screen. RTWSM warps the shadow map texture so that regions closer to the camera and more visible in the current view receive proportionally more shadow texels.
+
+Alpha Piscium implements RTWSM with two complementary importance analysis modes, both configurable under *RTWSM* settings:
+
+- **Forward importance analysis** (`SETTING_RTWSM_F`) — weights shadow texels based on their projected distance from the camera. Parameters include base value, minimum value, and a distance decay function.
+- **Backward importance analysis** (`SETTING_RTWSM_B`) — weights based on surface normals (preferring surfaces facing the camera or the light), distance, shadow edge proximity, and perpendicularity to the light direction.
+
+The RTWSM importance map is cleared at the start of every frame (`ClearRTWSM.comp.glsl` in begin5) and rebuilt as geometry passes write screen-pixel coverage data. The warp function is then baked into the shadow pass UV transform.
+
+**Reference:** [Rectilinear Texture Warping for Fast Adaptive Shadow Mapping](https://www.cspaul.com/publications/Rosen.2012.I3D.pdf) — Rosen et al., I3D 2012.
+</Card>
+
+<Card title="PCSS — Percentage Closer Soft Shadows" icon="circle-half-stroke">
+**Realistic Penumbra Estimation**
+
+RTWSM provides adaptive shadow resolution, but hard shadow edges remain physically inaccurate for area light sources. PCSS computes soft, contact-hardening shadows by modelling the sun (or moon) as a finite-area light source.
+
+The algorithm runs across the shadow sampling passes:
+1. **Blocker search** — a configurable number of samples (`SETTING_PCSS_BLOCKER_SEARCH_COUNT`) are taken from the shadow map around the shading point to estimate the average blocker depth.
+2. **Penumbra size** — the penumbra radius is computed from the average blocker distance relative to the receiver distance. A variable penumbra factor (`SETTING_PCSS_VPF`) scales the result with the angular size of the sun, producing wider soft edges when the sun is configured as a larger disc.
+3. **Filtering** — a second sample pass (`SETTING_PCSS_SAMPLE_COUNT`) performs percentage-closer filtering (PCF) across the computed penumbra radius.
+
+A base penumbra factor (`SETTING_PCSS_BPF`) adds a constant minimum blur so that even contact shadows retain a subtle softness.
+</Card>
+
+---
+
+## Clouds
+
+<Card title="Volumetric Clouds — Nubis" icon="cloud">
+**Guerrilla Games Cloud Rendering**
+
+Alpha Piscium's volumetric clouds are based on the Nubis technique developed at Guerrilla Games for *Horizon: Zero Dawn*. The system models two distinct cloud layers:
+
+- **Cumulus clouds** (low/mid altitude) — rendered when `SETTING_CLOUDS_CU` is enabled. These are full three-dimensional density volumes rendered by ray-marching through a noise-driven density field. Density is controlled by a combination of weather coverage and multi-octave 3D noise. Composite passes `composite13` and `composite14` handle the cumulus render and cloud-shadow projection.
+- **Cirrus clouds** (high altitude) — rendered as a thin planar layer using a separate noise texture, representing the ice-crystal clouds at the top of the troposphere.
+
+Cloud lighting uses physically-based phase functions and accounts for self-shadowing through the cloud volume. The cloud ambient LUT (updated each frame in begin2) provides pre-integrated sky irradiance for the cloud base, enabling realistic darkening of the underside without expensive per-cloud-sample sky queries.
+
+The per-cloud-layer settings expose controls for modeling (coverage, shaping, detail), lighting (scattering, ambient, shadow), and rendering quality (ray-march step count).
+
+**Reference:** [Nubis: Authoring Real-Time Volumetric Cloudscapes with the Decima Engine](https://www.guerrilla-games.com/read/nubis-evolved) — Schneider & Vos, SIGGRAPH 2017.
+</Card>
+
+---
+
+## Water
+
+<Card title="Water Caustics — Photon Tracing" icon="water">
+**Underwater Light Patterns**
+
+Caustics are the bright, shimmering patterns of focused light visible on surfaces beneath or beside a water body. Alpha Piscium computes these using a photon-tracing approach across three composite passes:
+
+1. **`composite9` — Photon Trace** (`CausticsPhotonTrace.comp.glsl`): A grid of virtual photons is emitted from the sun and refracted through the animated water surface using Snell's law. Each photon's landing position on the sea floor is recorded.
+2. **`composite10/11` — Remap** (`CausticsRemap.comp.glsl`): Photon landing positions are remapped from world space into a screen-aligned splat buffer. Photons that land on the same pixel accumulate irradiance.
+3. **`composite12` — Filter** (`CausticsFilter.comp.glsl`): The photon splat buffer is smoothed with a spatial filter to produce continuous, anti-aliased caustic patterns.
+
+The entire caustics pipeline is conditionally compiled (`SETTING_WATER_CAUSTICS`) and adds no cost when disabled.
+</Card>
+
+---
+
+## Screen-Space Effects
+
+<Card title="HiZ — Hierarchical Z Buffer" icon="layer-group">
+**Efficient Screen-Space Ray Marching**
+
+The Hierarchical Z buffer (HiZ) pyramid is a mip-chain of the G-buffer depth texture where each level stores the minimum depth value within its 2×2 footprint. Alpha Piscium builds the HiZ across passes `composite19`–`composite21` (`HiZGen.csh`).
+
+During ReSTIR GI ray tracing, rays step through the HiZ pyramid using a DDA-style traversal: at coarse mip levels, large empty regions are skipped in a single step; when a potential intersection is detected, the traversal descends to a finer level. This makes screen-space tracing of long rays practical at interactive frame rates.
+
+The initial sampling step count (`SETTING_GI_INITIAL_SST_STEPS`) and the assumed surface thickness (`SETTING_GI_SST_THICKNESS`) are the primary quality/performance trade-offs for the HiZ traversal.
+</Card>
+
+<Card title="TAA — Temporal Anti-Aliasing" icon="filter">
+**Temporal Sample Accumulation + RCAS Sharpening**
+
+Alpha Piscium uses TAA to eliminate sub-pixel aliasing across frames with minimal per-frame cost. Each frame, the camera projection matrix is jittered by a sub-pixel offset (the TAA jitter, available to all passes as `uval_taaJitter`). The resolve pass (`TAAResolve.comp.glsl`) then:
+
+1. Reprojects the previous accumulated frame using per-pixel motion vectors.
+2. Computes a colour neighbourhood bounding box around the current pixel in the new frame.
+3. Clamps the reprojected history to the bounding box to suppress ghosting from disocclusions or fast-moving objects.
+4. Blends current and clamped history with an adaptive weight.
+
+After TAA, **RCAS (Robust Contrast Adaptive Sharpening)** (`RCAS.comp.glsl`) is applied to recover fine detail softened by the temporal accumulation, without amplifying noise. An optional **FXAA** pass (`FXAA.comp.glsl`) can additionally smooth any remaining aliasing before RCAS.
+
+Anti-aliasing quality settings are found under the *Anti-Aliasing* screen in the shader options.
+</Card>
+
+---
+
+## Materials & Tone Mapping
+
+<Card title="PBR Materials — LabPBR / Built-in" icon="palette">
+**Physically Based Rendering with Resource Pack Support**
+
+Alpha Piscium supports three PBR material modes, selectable via `SETTING_PBR_MATERIAL`:
+
+| Mode | Description |
+|---|---|
+| **Built-in (0)** | Generates plausible PBR parameters from vanilla textures. Works with any resource pack without special PBR maps. |
+| **LabPBR Auto (1)** | Automatically detects LabPBR normal (`.n.png`) and specular (`.s.png`) textures and uses them when present, falling back to built-in otherwise. |
+| **LabPBR Force (2)** | Always uses LabPBR texture paths, even if the files are absent. |
+
+Material features include: normal mapping (`SETTING_NORMAL_MAPPING`), specular reflections with configurable F0 range (`SETTING_MINIMUM_F0`, `SETTING_SOLID_MINIMUM_ROUGHNESS`), subsurface scattering (`SETTING_SSS_*`) for leaves, skin, and ice, and emissive block support with configurable colour temperature for fire (default 1400 K) and lava (default 1300 K).
+
+The `SETTING_TBN_PACKING` option packs the tangent-space normal and tangent vectors into tighter G-buffer slots for terrain. It should be **disabled** when using mods that inject smooth surface normals, as those normals may not be compatible with the packed format.
+</Card>
+
+<Card title="AgX Display Render Transform" icon="sliders">
+**Invertible Tone Mapping for Wide Dynamic Range**
+
+Alpha Piscium applies an AgX-inspired display render transform at the end of the post-composite pass (`PostComposite.comp.glsl`). Unlike a simple Reinhard or Filmic curve, AgX operates on a per-channel basis in a carefully chosen working colour space and is designed to be invertible — meaning the image can be processed (e.g. colour-graded) and then correctly mapped to the display's gamut and transfer function without hue shifts or over-saturation on bright highlights.
+
+This produces natural-looking results across the full range from deep shadow to direct sun specular highlights, which span many orders of magnitude in physical luminance.
+
+Advanced colour management settings are exposed under *Color Management* for users who understand colour spaces and wish to tune the working primaries, white point, or display transfer function.
+</Card>
+
+---
+
+<Note>
+  All technique implementations are within the `shaders/pass/` and `shaders/techniques/` directories of the source repository. The filenames listed throughout this page (e.g. `GIReSTIRInitalSampleRayGenTrace.comp.glsl`) correspond directly to the GLSL compute shaders that implement each stage.
+</Note>

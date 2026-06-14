@@ -1,0 +1,130 @@
+---
+title: "Compatibility: GPUs, Mods, and Resource Packs"
+sidebarTitle: "Compatibility"
+description: "Alpha Piscium compatibility information covering GPU support, required Iris version, Distant Horizons integration, and resource pack format support."
+---
+
+Alpha Piscium uses cutting-edge OpenGL compute shader features and relies on the Iris shader loader for integration with Minecraft. Before installing, review the requirements below to confirm your hardware and software configuration is supported.
+
+## Shader Loader
+
+<Warning>
+  **OptiFine is not supported.** Alpha Piscium requires [Iris](https://www.irisshaders.dev/download) version **1.7 or higher**. Loading the pack with OptiFine will fail. If you see a loading error in Iris, press **Ctrl+D** on the shader selection screen to dump diagnostics, then reload the shader pack.
+</Warning>
+
+Alpha Piscium is developed and tested against Iris. The shader pack relies on Iris-specific extensions and compute shader support that OptiFine does not provide. Iris also handles Minecraft version compatibility, meaning Alpha Piscium works with any Minecraft version that your installed Iris version supports.
+
+**Installation checklist:**
+1. Install [Iris 1.7+](https://www.irisshaders.dev/download) (Fabric or NeoForge/Forge, per your setup).
+2. Download the Alpha Piscium ZIP from [Modrinth](https://modrinth.com/shader/alpha-piscium) or [GitHub Releases](https://github.com/Luna5ama/Alpha-Piscium/releases).
+3. Place the ZIP in `.minecraft/shaderpacks/`.
+4. Select the pack in **Options → Video Settings → Shader Packs**.
+
+---
+
+## GPU Compatibility
+
+<CardGroup cols={3}>
+  <Card title="NVIDIA" icon="check" color="#76b900">
+    **Fully supported and recommended.** NVIDIA GPUs have mature OpenGL drivers with complete support for the compute shader features Alpha Piscium requires. All performance profiles function as intended.
+  </Card>
+  <Card title="AMD" icon="triangle-exclamation" color="#ed7d31">
+    **Supported with driver requirement.** Your AMD GPU driver must be **newer than version 22.7.1**. Older AMD drivers lack necessary OpenGL functionality. Update via [AMD's driver download page](https://www.amd.com/en/support) before using Alpha Piscium.
+  </Card>
+  <Card title="Intel" icon="xmark" color="#e74c3c">
+    **Not supported.** Intel's OpenGL driver does not implement the features that Alpha Piscium depends on. There is no workaround. Intel integrated and Arc GPUs are both affected.
+  </Card>
+</CardGroup>
+
+<Note>
+  If you experience unexpected rendering errors on a supported GPU, press **Ctrl+D** on the Iris shader selection screen, reload the shader pack, and file an [issue on GitHub](https://github.com/Luna5ama/Alpha-Piscium/issues) with the error message and the relevant files from `.minecraft/patched_shaders/` as indicated in the error output.
+</Note>
+
+---
+
+## Distant Horizons & Voxy
+
+Alpha Piscium has first-class support for extended-render-distance mods. Dedicated shader passes are compiled specifically for their geometry, ensuring correct depth, lighting, and shadow integration.
+
+<Accordion title="Distant Horizons (DH)">
+  Distant Horizons renders simplified LOD terrain beyond the vanilla render distance. Alpha Piscium includes three dedicated DH shader programs:
+
+  | Shader Program | Purpose |
+  |---|---|
+  | `dh_terrain.vsh` / `dh_terrain.fsh` | Opaque DH terrain geometry |
+  | `dh_water.vsh` / `dh_water.fsh` | DH water surfaces |
+  | `dh_shadow.vsh` / `dh_shadow.gsh` / `dh_shadow.fsh` | DH geometry in the shadow pass |
+
+  These passes write into the same G-buffer slots as vanilla terrain, so all deferred lighting — GI, shadows, atmospheric scattering — applies seamlessly to distant terrain.
+</Accordion>
+
+<Accordion title="Voxy">
+  Voxy is an alternative extended-view-distance mod. Alpha Piscium supports Voxy via two GLSL programs and a dedicated `voxy.json` configuration:
+
+  | Shader Program | Purpose |
+  |---|---|
+  | `voxy_opaque.glsl` | Voxy opaque LOD geometry |
+  | `voxy_translucent.glsl` | Voxy translucent LOD geometry |
+
+  Voxy support requires **Voxy 0.2.6 or higher**. The Voxy merge composite pass (`composite1.csh`, conditionally enabled) blends Voxy depth and colour into the main framebuffer before the rest of the composite pipeline runs.
+
+  The `voxy.json` configuration sets TAA jitter offsets (`uval_taaJitterUV`) and custom blending modes for Voxy geometry to match Alpha Piscium's render targets.
+
+  <Note>
+    `composite1` and `begin6` are conditionally compiled — they are active only when the `VOXY` preprocessor flag is defined, adding no overhead for users who do not have Voxy installed.
+  </Note>
+</Accordion>
+
+---
+
+## Resource Pack Compatibility
+
+<CardGroup cols={2}>
+  <Card title="Vanilla (Built-in PBR)" icon="cube">
+    Works out of the box with no resource pack required. Alpha Piscium generates plausible PBR parameters from vanilla textures. For the best vanilla-style visual result, the developers recommend **SPBR** (a vanilla-style PBR resource pack).
+  </Card>
+  <Card title="LabPBR Packs" icon="image">
+    Full support for the LabPBR material format, including normal maps and specular maps. Use **LabPBR Auto** mode for packs that partially include PBR textures, or **LabPBR Force** when the pack is fully PBR. **Patrix** is a recommended high-resolution LabPBR pack.
+  </Card>
+</CardGroup>
+
+### PBR Material Modes
+
+The `SETTING_PBR_MATERIAL` option controls how material data is sourced:
+
+| Value | Mode | Description |
+|---|---|---|
+| `0` | Built-in | Derives PBR parameters algorithmically from the vanilla texture colour. No additional files needed. |
+| `1` | LabPBR (Auto) | Detects LabPBR normal/specular textures when present; falls back to built-in for blocks without them. Best for mixed packs. |
+| `2` | LabPBR (Force) | Always reads LabPBR texture slots. Use when your resource pack is fully LabPBR-compliant. |
+
+<Tip>
+  If you are getting **no lighting at night**, you are likely using a resource pack without emissive or PBR texture data, and the built-in mode cannot extract enough material information. Switching to SPBR (for a vanilla look) or a LabPBR pack such as Patrix will resolve this.
+</Tip>
+
+### TBN Packing and Mod-Added Normals
+
+Alpha Piscium uses a G-buffer optimisation called **TBN Packing** (`SETTING_TBN_PACKING`) that compresses the tangent-space normal and tangent vectors for terrain into a tighter format. This is enabled by default.
+
+<Warning>
+  If you use any mod that injects smooth surface normals into the terrain vertex buffer (e.g. certain visual enhancement mods), you must **disable TBN Packing** in Alpha Piscium's settings. Mods that supply normals in a format incompatible with the packing scheme will cause rendering artifacts.
+</Warning>
+
+---
+
+## Known Limitations
+
+Alpha Piscium's GI, reflections, and light-shaft systems are fundamentally screen-space techniques. This means they can only use information that is visible on screen in the current frame.
+
+<CardGroup cols={2}>
+  <Card title="Off-Screen Geometry" icon="eye-slash">
+    Objects behind the camera or outside the screen edges cannot receive indirect lighting, cast GI onto visible surfaces, or appear in reflections. This is an inherent limitation of screen-space ray tracing — no shader can retrieve information about geometry it cannot see.
+  </Card>
+  <Card title="Turning-Around Darkening" icon="rotate">
+    When you turn around quickly, newly visible surfaces may temporarily appear darker than expected. This occurs because the GI temporal accumulation has no history for those pixels yet. The effect resolves within a few frames as history builds up. There is no perfect fix for this screen-space artefact.
+  </Card>
+</CardGroup>
+
+<Note>
+  ReSTIR's environment probe system (`EnvProbeUpdate` passes) mitigates these screen-space limitations by providing a temporally-stable sky irradiance fallback for pixels that lack sufficient GI screen-space history. However, it cannot fully replace the missing geometric information for nearby occluded surfaces.
+</Note>

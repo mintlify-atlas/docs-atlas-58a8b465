@@ -1,0 +1,100 @@
+{
+  "projectType": "general",
+  "projectName": "Alpha Piscium",
+  "projectDescription": "A high-quality, realistic Minecraft shaderpack featuring real-time global illumination, physically-based rendering, volumetric clouds, atmospheric scattering, and advanced post-processing effects.",
+  "theme": "willow",
+  "primaryColor": "#7c7c7c",
+  "lightColor": "#060606",
+  "darkColor": "#c6c6c6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "requirements"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/profiles",
+              "configuration/materials",
+              "configuration/shadows",
+              "configuration/global-illumination",
+              "configuration/atmosphere",
+              "configuration/water",
+              "configuration/clouds",
+              "configuration/post-processing",
+              "configuration/color-management"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/pbr-resource-packs",
+              "guides/performance-tuning",
+              "guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Technical Reference",
+            "pages": [
+              "reference/rendering-pipeline",
+              "reference/techniques",
+              "reference/compatibility"
+            ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "ReSTIR-based screen-space global illumination with ReBLUR denoising",
+    "Physically-based atmospheric scattering (Unreal Engine Sky Atmosphere technique)",
+    "Epipolar sampling for fast volumetric light shafts",
+    "Volumetric clouds using Nubis technique (cumulus and cirrus layers)",
+    "Rectilinear Texture Warping Shadow Mapping (RTWSM) for adaptive shadow detail",
+    "PCSS soft shadows with physically-correct penumbra",
+    "Physically-based rendering with LabPBR material support",
+    "Temporal Anti-Aliasing (TAA) with CAS sharpening",
+    "Depth of Field with realistic camera aperture simulation",
+    "Tone mapping with multiple looks (AgX, ACES-inspired)",
+    "Water caustics via photon tracing",
+    "Purkinje effect (night vision desaturation)",
+    "Full color management with configurable color spaces",
+    "Distant Horizons (Voxy) integration",
+    "Per-time-of-day Mie turbidity for dynamic haze"
+  ],
+  "publicApiSurface": [
+    "SETTING_PBR_MATERIAL — PBR material mode (Built-in, LabPBR Auto, LabPBR Force)",
+    "SETTING_SHADOW_MAP_RESOLUTION — Shadow map resolution (1024–4096)",
+    "SETTING_RTWSM_F / SETTING_RTWSM_B — Rectilinear warping shadow parameters",
+    "SETTING_GI_INITIAL_SST_STEPS — GI screen-space trace steps",
+    "SETTING_GI_TEMPORAL_REUSE_LIMIT — GI temporal reservoir limit",
+    "SETTING_GI_SPATIAL_REUSE / SETTING_GI_SPATIAL_REUSE_COUNT — GI spatial reuse",
+    "SETTING_DENOISER_HISTORY_LENGTH / SETTING_DENOISER_FAST_HISTORY_LENGTH — Denoiser accum frames",
+    "SETTING_CLOUDS_CU / SETTING_CLOUDS_CI — Enable cumulus / cirrus clouds",
+    "SETTING_CLOUDS_CU_HEIGHT / SETTING_CLOUDS_CU_DENSITY / SETTING_CLOUDS_CU_COVERAGE — Cumulus shape",
+    "SETTING_ATM_MIE_TURBIDITY — Atmospheric haze level",
+    "SETTING_EPIPOLAR_SLICES / SETTING_SLICE_SAMPLES — Light shaft quality",
+    "SETTING_DOF / SETTING_DOF_FOCAL_LENGTH / SETTING_DOF_F_STOP — Depth of Field",
+    "SETTING_BLOOM / SETTING_BLOOM_INTENSITY — Bloom effect",
+    "SETTING_TONE_MAPPING_LOOK — Tone mapping curve (0–3)",
+    "SETTING_TAA / SETTING_TAA_CAS_SHARPNESS — Temporal anti-aliasing",
+    "SETTING_EXPOSURE_MANUAL / SETTING_EXPOSURE_MIN_EV / SETTING_EXPOSURE_MAX_EV — Exposure control",
+    "SETTING_WATER_CAUSTICS — Water caustics photon tracing",
+    "SETTING_PURKINJE_EFFECT — Night vision desaturation",
+    "SETTING_MATERIAL_COLOR_SPACE / SETTING_OUTPUT_COLOR_SPACE — Color management"
+  ]
+}

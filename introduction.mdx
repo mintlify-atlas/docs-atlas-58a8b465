@@ -1,0 +1,74 @@
+---
+title: "Alpha Piscium: Realistic Shaders for Minecraft"
+sidebarTitle: "Introduction"
+description: "Alpha Piscium is a high-quality realistic Minecraft shaderpack featuring ReSTIR global illumination, volumetric clouds, atmospheric scattering, and PBR rendering."
+---
+
+Alpha Piscium is a high-quality realistic shaderpack for Minecraft, built around cutting-edge rendering techniques to deliver physically accurate lighting, skies, shadows, and materials. Every visual system in Alpha Piscium is grounded in real-time research — from reservoir-based global illumination borrowed from AAA graphics pipelines, to atmospheric scattering models adapted directly from Unreal Engine — making it one of the most technically ambitious shaderpacks available for the game.
+
+## Core Rendering Features
+
+Alpha Piscium implements a broad suite of modern rendering techniques that work together to create a cohesive, realistic look.
+
+### Real-Time Global Illumination
+
+Global illumination is computed using **ReSTIR SSGI** — Reservoir-based SpatioTemporal Importance Resampling applied to Screen-Space Global Illumination. This algorithm, originally developed by NVIDIA, intelligently resamples lighting candidates across space and time to produce stable, high-quality indirect lighting at real-time performance. Denoising is handled by **ReBLUR**, a recurrent blur algorithm that refines the GI signal over multiple frames.
+
+### Atmospheric Scattering & Light Shafts
+
+The sky is rendered using the **Unreal Engine Sky Atmosphere** technique, a physically based model that accurately simulates Rayleigh scattering, Mie scattering, and ozone absorption across the full day-night cycle. Volumetric light shafts (god rays) are rendered using **epipolar sampling**, an efficient method that concentrates ray-marching samples along the direction of sunlight for crisp, high-quality aerial perspective.
+
+### Volumetric Clouds
+
+Clouds are modeled with the **Nubis** technique, originally developed by Guerrilla Games for Horizon Zero Dawn. Alpha Piscium supports two cloud layers — puffy low-altitude cumulus clouds and wispy high-altitude cirrus clouds — each with independent controls for altitude, density, coverage, and wind movement.
+
+### Shadows
+
+Shadow rendering uses **RTWSM** (Rectilinear Texture Warping Shadow Mapping), an adaptive technique that redistributes shadow map resolution based on where detail is most needed in the scene. Soft shadow edges are computed with **PCSS** (Percentage-Closer Soft Shadows), which produces realistic penumbra sizes that scale with the caster's distance from the receiver and the angular size of the sun.
+
+### PBR & LabPBR Material Support
+
+Alpha Piscium supports **Physically Based Rendering** with full **LabPBR** material format compatibility, including normal mapping, specular reflections, and subsurface scattering on blocks. Both auto-detection and forced LabPBR modes are available. A built-in material mode is also provided for use without a dedicated PBR resource pack.
+
+### Post-Processing & Visual Effects
+
+The post-processing pipeline includes:
+
+- **Temporal Anti-Aliasing (TAA)** with sub-pixel jittering and configurable history filters for clean edges across frames
+- **Depth of Field (DoF)** with physically based aperture simulation, configurable focal length and f-stop, and circular or hexagonal bokeh shapes
+- **Tone mapping** using **AgX** with configurable dynamic range and color grading presets (Default, Golden, Punchy, and Custom)
+- **Water caustics** — realistic light patterns cast onto surfaces beneath water
+- **Purkinje effect** — the physiological shift toward monochrome, blue-shifted vision in low-light conditions, simulating how human eyes actually perceive darkness
+- **Bloom** with configurable spread, intensity, and highlight compression
+
+## Requirements
+
+Alpha Piscium requires **Iris 1.7 or higher** as the shader loader. Fabric/Quilt with Iris, or the standalone Iris installer, are both supported. Modern NVIDIA or AMD GPUs are recommended; Intel GPUs are not supported. See the [Requirements](/requirements) page for full hardware and driver details.
+
+## Community & Downloads
+
+<CardGroup cols={2}>
+  <Card title="Modrinth" icon="cube" href="https://modrinth.com/shader/alpha-piscium">
+    Download the latest release of Alpha Piscium from Modrinth.
+  </Card>
+  <Card title="Discord" icon="discord" href="https://discord.gg/E2Uq2MmHgq">
+    Join the official Discord server for support, previews, and community discussion.
+  </Card>
+</CardGroup>
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Step-by-step guide to downloading and activating Alpha Piscium in Minecraft using Iris.
+  </Card>
+  <Card title="Requirements" icon="microchip" href="/requirements">
+    GPU compatibility, driver version requirements, and supported mod loaders.
+  </Card>
+  <Card title="Configuration Profiles" icon="sliders" href="/configuration/profiles">
+    Explore the six built-in quality presets from Low to Insane.
+  </Card>
+  <Card title="PBR Resource Packs" icon="palette" href="/guides/pbr-resource-packs">
+    Pair Alpha Piscium with a LabPBR resource pack to unlock full physically based rendering.
+  </Card>
+</CardGroup>

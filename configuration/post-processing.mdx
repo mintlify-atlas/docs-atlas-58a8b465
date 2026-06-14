@@ -1,0 +1,321 @@
+---
+title: "Post-Processing: DOF, Bloom, Tone Mapping, TAA"
+sidebarTitle: "Post Processing"
+description: "Configure Alpha Piscium's post-processing pipeline including depth of field, bloom, exposure, tone mapping, color grading, Purkinje effect, and anti-aliasing."
+---
+
+Alpha Piscium's post-processing pipeline transforms the raw high-dynamic-range scene into the final image displayed on your screen. Working in linear light, the pipeline applies cinematic depth of field with physically-modeled aperture bokeh, a multi-pass bloom with highlight compression, auto-exposure using both average luminance and highlight/shadow metering, the Purkinje effect for realistic dim-light color vision loss, and AgX tone mapping with full per-channel color grading. The pipeline concludes with Temporal Anti-Aliasing (TAA) that accumulates sub-pixel jitter samples across frames and applies AMD FidelityFX CAS sharpening to recover detail.
+
+## Depth of Field
+
+<Accordion title="Enable and Lens Settings">
+  <ParamField path="SETTING_DOF" type="boolean" default="false">
+    Enables depth of field. Blurs objects outside the focal plane, simulating the lens characteristics of a real camera. Disabled by default to preserve game clarity; enable for cinematic screenshots or immersive gameplay.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_FOCAL_LENGTH" type="float" default="50.0">
+    Simulated focal length of the camera lens in millimeters. Valid values: 18, 24, 35, 50, 75, 100 mm. Shorter focal lengths (wide angle) produce subtle blur even with small f-stops; longer focal lengths (telephoto) produce much stronger background separation at equivalent apertures.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_F_STOP" type="float" default="1.4">
+    Aperture f-stop. Valid values: f/1.0, f/1.4, f/2.0, f/2.8, f/4.0, f/5.6, f/8.0, f/11.0, f/16.0. Lower f-stops (wider aperture) produce stronger blur; higher f-stops (narrower aperture) produce sharper background detail.
+  </ParamField>
+
+  <ParamField path="SETTING_APERTURE_SHAPE" type="integer" default="1">
+    Shape of the bokeh discs produced by out-of-focus point lights. `0` = Circle, `1` = Hexagon. Hexagonal bokeh mimics the typical 6-blade aperture of many real camera lenses.
+  </ParamField>
+</Accordion>
+
+<Accordion title="DOF Quality">
+  <ParamField path="SETTING_DOF_QUALITY" type="integer" default="3">
+    Quality of the depth of field blur. Range: 1–5. Higher values increase the number of samples used for the bokeh kernel, producing smoother blur at the cost of GPU performance.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_MAX_SAMPLE_RADIUS" type="integer" default="8">
+    Maximum blur radius in pixels. Valid values: 2, 4, 8, 12, 16, 20, 24. Should be matched to the chosen aperture — too low clips the bokeh disc at large apertures; too high introduces artifacts on sharp in-focus edges.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_MASKING_HEURISTIC" type="integer" default="8">
+    Controls the strictness of foreground/background separation during blurring. Range: 0–32. Higher values more aggressively prevent foreground blur from bleeding into background elements, reducing the "double vision" artifact at near-field object edges.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Focus Control">
+  <ParamField path="SETTING_DOF_MANUAL_FOCUS" type="boolean" default="false">
+    When enabled, focus distance is set manually using the controls below instead of automatically focusing on the crosshair target.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_FOCUS_DISTANCE_COARSE_COARSE" type="integer" default="0">
+    Coarse-coarse focus distance in meters (increments of 100 m). Range: 0–10000 m. Only active when Manual Focus is enabled. Use for large initial distance changes.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_FOCUS_DISTANCE_COARSE" type="integer" default="10">
+    Coarse focus distance in meters (1 m increments). Range: 1–100 m. Added to the coarse-coarse value to set the primary focus distance.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_FOCUS_DISTANCE_FINE" type="float" default="0.0">
+    Fine-tune adjustment added to the coarse distance. Range: −1.0 to 1.0 m. Allows sub-meter precision when placing the focal plane on a specific subject.
+  </ParamField>
+
+  <ParamField path="SETTING_DOF_FOCUS_TIME" type="float" default="2.0">
+    Speed at which the autofocus transitions to a new target distance. Range: 0.0–10.0 seconds. Lower values produce snappy instant focus; higher values create a slow cinematic focus pull effect.
+  </ParamField>
+</Accordion>
+
+## Bloom
+
+<Accordion title="Enable and Basic Settings">
+  <ParamField path="SETTING_BLOOM" type="boolean" default="true">
+    Enables bloom. Simulates the physical phenomenon of bright light bleeding beyond its geometric boundary on a camera sensor or the human eye, creating a characteristic glow around light sources and bright surfaces.
+  </ParamField>
+
+  <ParamField path="SETTING_BLOOM_INTENSITY" type="float" default="0.0">
+    Overall bloom intensity as **2^x**. Range: −8.0 to 8.0. A value of 0.0 produces a neutral ×1.0 bloom strength. Increase for more dramatic glow; decrease for subtler bloom.
+  </ParamField>
+
+  <ParamField path="SETTING_BLOOM_RADIUS" type="float" default="1.0">
+    How far the bloom glow spreads from bright sources. Range: 1.0–5.0×. Higher values create wider halos; very high values can make the entire screen appear hazy in bright outdoor scenes.
+  </ParamField>
+
+  <ParamField path="SETTING_BLOOM_PASS" type="integer" default="8">
+    Number of iterative bloom blur passes. Range: 1–10. More passes extend the glow reach and smooth it across multiple scales, creating the multi-layered lens flare appearance of real camera optics.
+  </ParamField>
+
+  <ParamField path="SETTING_BLOOM_UNDERWATER_BOOST" type="float" default="2.0">
+    Extra bloom intensity multiplier applied when the camera is submerged underwater as **2^x** offset. Range: 0.0–8.0. The default of 2.0 (×4.0 boost) creates the dreamy, diffuse glow characteristic of underwater photography.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Highlight Compression">
+  Highlight compression prevents bloom from becoming overwhelming when extremely bright scene elements (like the sun disc) contribute unrealistically large amounts of bloom energy.
+
+  <ParamField path="SETTING_BLOOM_HIGHLIGHT_COMPRESSION" type="integer" default="3">
+    Strength of highlight compression before the bloom pass. Values: `0` = Off, `1` = Low, `2` = Medium, `3` = High, `4` = Hard Clipping. Higher levels progressively limit how much extremely bright pixels contribute to the bloom accumulation.
+  </ParamField>
+
+  <ParamField path="SETTING_BLOOM_HIGHLIGHT_COMPRESSION_MODE" type="integer" default="0">
+    Method used to apply highlight compression. `0` = RGB (compresses all channels equally, reducing saturation in highlights), `1` = Luma (compresses based on perceived brightness, preserving hue and saturation in highlights).
+  </ParamField>
+</Accordion>
+
+## Purkinje Effect (Night Vision)
+
+<Accordion title="Purkinje Effect Settings">
+  The Purkinje effect is a perceptual phenomenon where the human eye shifts from cone-based color vision to rod-based monochrome vision as light levels drop. Enabling this setting simulates that shift for a more realistic night experience.
+
+  <ParamField path="SETTING_PURKINJE_EFFECT" type="boolean" default="true">
+    Enables the Purkinje effect simulation. When active, colors gradually desaturate and shift toward a bluish monochrome as scene luminance drops below the threshold range.
+  </ParamField>
+
+  <ParamField path="SETTING_PURKINJE_EFFECT_MIN_LUM" type="float" default="-10.0">
+    Luminance below which the scene is fully desaturated to monochrome, expressed as **10^x** cd/m². Range: −10.0 to 1.0. The default of −10.0 (10^−10 cd/m²) means even very dim environments retain some color unless extremely dark.
+  </ParamField>
+
+  <ParamField path="SETTING_PURKINJE_EFFECT_MAX_LUM" type="float" default="-2.0">
+    Luminance above which color vision is fully restored, expressed as **10^x** cd/m². Range: −10.0 to 1.0. The default of −2.0 (0.01 cd/m²) means colors return in dim indoor or moonlit environments.
+  </ParamField>
+
+  <ParamField path="SETTING_PURKINJE_EFFECT_CR" type="float" default="0.9">
+    Red component of the night vision monochrome tint. Range: 0.0–1.0. The default value slightly reduces red, contributing to the blue-shifted appearance of night vision.
+  </ParamField>
+
+  <ParamField path="SETTING_PURKINJE_EFFECT_CG" type="float" default="0.95">
+    Green component of the night vision tint. Range: 0.0–1.0.
+  </ParamField>
+
+  <ParamField path="SETTING_PURKINJE_EFFECT_CB" type="float" default="1.0">
+    Blue component of the night vision tint. Range: 0.0–1.0. The maximum default blue value, combined with reduced red and green, creates the characteristically blue-grey tones of dim-light scotopic vision.
+  </ParamField>
+</Accordion>
+
+## Exposure
+
+<Accordion title="Manual Exposure">
+  <ParamField path="SETTING_EXPOSURE_MANUAL" type="boolean" default="false">
+    Locks exposure to a fixed EV value instead of using automatic scene metering. Useful for consistent screenshots or when auto-exposure behavior is unwanted.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_MANUAL_EV_COARSE" type="integer" default="3">
+    Coarse manual exposure adjustment in integer EV stops. Range: −32 to +32. Negative = darker; positive = brighter. Only active when Manual Exposure is enabled.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_MANUAL_EV_FINE" type="float" default="0.0">
+    Sub-stop fine-tune for manual exposure. Range: −1.0 to 1.0 EV. Added to the coarse value.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_MIN_EV" type="float" default="-3.0">
+    Minimum EV that auto-exposure is allowed to reach. Range: −32.0 to 32.0. Prevents the image from becoming excessively dark in very bright scenes.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_MAX_EV" type="float" default="10.0">
+    Maximum EV that auto-exposure is allowed to reach. Range: −32.0 to 32.0. Prevents the image from becoming excessively bright in very dark scenes.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Exposure Metering Weights">
+  <ParamField path="SETTING_EXPOSURE_EMISSIVE_WEIGHTING" type="float" default="-3.0">
+    Weighting multiplier for emissive block pixels in the exposure meter as **2^x**. Range: −5.0 to 5.0. Reduce to prevent torch and lava blocks from dominating the meter and causing the rest of the scene to go dark.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_DISTANCE_WEIGHTING" type="float" default="0.5">
+    How much the distance of a pixel from the player influences its metering weight. Range: 0.0–5.0. Higher values give more importance to nearby scene elements when computing exposure.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_CENTER_WEIGHTING" type="float" default="4.0">
+    How much the center of the screen is weighted relative to the periphery in the exposure meter. Range: 0.0–8.0. Higher values bias exposure toward whatever is directly in front of the player.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_CENTER_WEIGHTING_CURVE" type="float" default="3.0">
+    Sharpness of the center weighting falloff. Range: 1.0–8.0. Higher values create a tighter focus on the very center; lower values produce a more gradual falloff toward the screen edges.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Average Luminance Metering">
+  <ParamField path="SETTING_EXPOSURE_AVG_LUM_MIX" type="float" default="0.25">
+    Blend weight of the average-luminance metering method. Range: 0.0–1.0. Higher values make exposure track overall scene brightness more aggressively.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_AVG_LUM_TIME" type="float" default="3.0">
+    Temporal smoothing time constant for average luminance adaptation in seconds. Range: 0.0–10.0. Lower values produce faster eye adaptation; higher values create a slow, cinematic transition.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_AVG_LUM_MIN_TARGET" type="integer" default="40">
+    Target display value (0–255 scale) for dark environments such as caves and night. Higher values brighten dark scenes.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_AVG_LUM_MAX_TARGET" type="integer" default="140">
+    Target display value (0–255 scale) for bright environments such as outdoor daylight. Higher values allow brighter output.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Highlight / Shadow Metering">
+  <ParamField path="SETTING_EXPOSURE_HS_MIX" type="float" default="1.0">
+    Blend weight of the highlight/shadow metering method. Range: 0.0–1.0. Higher values weight exposure corrections toward protecting highlight and shadow detail.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_HS_TIME" type="float" default="2.0">
+    Temporal smoothing time constant for highlight/shadow metering in seconds. Range: 0.0–10.0.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_HS_MIN_EV_DELTA" type="float" default="-1.5">
+    Maximum number of EV stops that highlight/shadow metering can darken the scene. Range: −4.0 to 0.0.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_HS_MAX_EV_DELTA" type="float" default="1.5">
+    Maximum number of EV stops that highlight/shadow metering can brighten the scene. Range: 0.0 to 4.0.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_H_LUM" type="integer" default="225">
+    Luminance threshold (0–255 scale) above which pixels are classified as highlights. Exposure adjusts to prevent these bright pixels from clipping.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_H_PERCENT" type="float" default="5.0">
+    Target percentage of pixels allowed to exceed the highlight threshold before the meter reacts. Range: 0.5–10.0%. Higher values permit more overexposure before darkening.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_S_LUM" type="integer" default="33">
+    Luminance threshold (0–255 scale) below which pixels are classified as shadows. Exposure adjusts to keep these dark pixels visible.
+  </ParamField>
+
+  <ParamField path="SETTING_EXPOSURE_S_PERCENT" type="float" default="3.0">
+    Target percentage of pixels allowed to fall below the shadow threshold. Range: 0.5–10.0%. Higher values accept more crushed blacks before brightening.
+  </ParamField>
+</Accordion>
+
+## Tone Mapping & Color Grading
+
+<Accordion title="AgX Tone Mapping">
+  Alpha Piscium uses the **AgX** tone mapping operator, which maps high-dynamic-range scene linear light to a display-referred image with filmic color handling. The look presets provide curated starting points while the Custom option exposes the full per-channel grade.
+
+  <ParamField path="SETTING_TONE_MAPPING_DYNAMIC_RANGE" type="float" default="16.5">
+    Range of brightness levels preserved from dark to bright in EV stops. Range: 4.0–32.0. Higher values preserve more shadow and highlight detail but can appear more flat; lower values produce a more contrasted, punchy look. Default of 16.5 EV closely matches real-world scene dynamic range.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_LOOK" type="integer" default="3">
+    AgX preset look. `0` = Default, `1` = Golden (warm, film-like), `2` = Punchy (high contrast), `3` = Custom (use per-channel settings below).
+  </ParamField>
+</Accordion>
+
+<Accordion title="Custom Color Grading (Lift / Gain / Contrast)">
+  These settings are only meaningful when `SETTING_TONE_MAPPING_LOOK` is set to `3` (Custom). Each channel can be independently adjusted with a lift (offset), gain (slope), and contrast (power) curve.
+
+  <ParamField path="SETTING_TONE_MAPPING_OFFSET_R" type="float" default="0.0">
+    Red channel lift (offset). Range: −1.0 to 1.0. Adds or removes red from all brightness levels uniformly.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_OFFSET_G" type="float" default="0.0">
+    Green channel lift. Range: −1.0 to 1.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_OFFSET_B" type="float" default="0.0">
+    Blue channel lift. Range: −1.0 to 1.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_SLOPE_R" type="float" default="1.05">
+    Red channel gain (slope). Range: 0.1–2.0. Values below 1.0 reduce red; above 1.0 boost red intensity in mid-tones.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_SLOPE_G" type="float" default="1.05">
+    Green channel gain. Range: 0.1–2.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_SLOPE_B" type="float" default="1.05">
+    Blue channel gain. Range: 0.1–2.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_POWER_R" type="float" default="1.1">
+    Red channel contrast (power curve). Range: 0.1–2.0. Values above 1.0 increase contrast in the red channel; values below 1.0 flatten it.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_POWER_G" type="float" default="1.1">
+    Green channel contrast. Range: 0.1–2.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_POWER_B" type="float" default="1.1">
+    Blue channel contrast. Range: 0.1–2.0.
+  </ParamField>
+
+  <ParamField path="SETTING_TONE_MAPPING_SATURATION" type="float" default="1.3">
+    Overall color saturation applied after tone mapping. Range: 0.0–2.0. A value of 0.0 produces black and white; 1.0 is neutral; 2.0 produces hyper-saturated colors.
+  </ParamField>
+</Accordion>
+
+## Anti-Aliasing (TAA)
+
+<Accordion title="Temporal Anti-Aliasing">
+  <ParamField path="SETTING_TAA" type="boolean" default="true">
+    Enables Temporal Anti-Aliasing. TAA accumulates sub-pixel jitter samples across multiple frames to smooth jagged edges. Highly recommended — many rendering features including the volumetric atmosphere, clouds, and SSGI rely on temporal accumulation enabled by TAA.
+  </ParamField>
+
+  <ParamField path="SETTING_TAA_JITTER" type="boolean" default="true">
+    Enables sub-pixel jittering of the camera projection matrix each frame. Required for TAA to collect the sub-pixel information it needs. Disable only if another technique is being used to supply jitter.
+  </ParamField>
+
+  <ParamField path="SETTING_TAA_CURR_FILTER" type="integer" default="2">
+    Reconstruction filter applied to the current frame before blending with history. `0` = B-Spline (smooth, slightly soft), `1` = Catmull-Rom (sharp, potential ringing), `2` = Lanczos2 (sharp with less ringing than Catmull-Rom, slightly more GPU cost).
+  </ParamField>
+
+  <ParamField path="SETTING_TAA_HISTORY_FILTER" type="integer" default="4">
+    Reconstruction filter applied when sampling the TAA history buffer. `1` = Bilinear (fast, blurry), `2` = Catmull-Rom 5 Tap (balanced), `3` = Catmull-Rom 9 Tap (sharper, less ringing), `4` = Lanczos2 (sharpest, most GPU cost).
+  </ParamField>
+
+  <ParamField path="SETTING_TAA_CAS_SHARPNESS" type="float" default="0.5">
+    Sharpening strength applied after TAA using AMD FidelityFX Contrast Adaptive Sharpening (CAS). Range: 0.0–1.0. Restores fine detail softened by the temporal accumulation process. Higher values produce a crisper, more detailed image.
+  </ParamField>
+</Accordion>
+
+## Miscellaneous
+
+<Accordion title="Screenshot and Video Mode">
+  <ParamField path="SETTING_SCREENSHOT_MODE" type="boolean" default="false">
+    Disables animations and reduces temporal clamping for cleaner, higher-quality screenshots. All temporal effects are given time to fully converge before a capture.
+  </ParamField>
+
+  <ParamField path="SETTING_VIDEO_RENDER_MODE" type="boolean" default="false">
+    Adjusts temporal-accumulated effects for compatibility with video rendering mods such as Flashback. Prevents frame-to-frame consistency issues that can appear in captured video when the renderer does not run in real-time.
+  </ParamField>
+
+  <ParamField path="SETTING_CONSTELLATIONS" type="boolean" default="false">
+    Displays constellation lines connecting bright catalog stars in the night sky. When enabled, familiar star patterns such as Orion and Ursa Major are outlined for identification.
+  </ParamField>
+</Accordion>

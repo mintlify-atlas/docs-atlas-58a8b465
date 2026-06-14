@@ -1,20 +1,66 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Alpha Piscium: High-Quality Realistic Minecraft Shaders"
+sidebarTitle: "Home"
+description: "Alpha Piscium is a cutting-edge Minecraft shaderpack delivering real-time global illumination, volumetric clouds, and physically-based rendering."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+Alpha Piscium is a high-quality, realistic Minecraft shaderpack that brings cutting-edge rendering techniques to the game. Featuring ReSTIR-based global illumination, physically-based atmospheric scattering, volumetric clouds, and advanced shadow mapping, it delivers a cinematic visual experience grounded in real graphics research.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Download and install Alpha Piscium with Iris in a few steps.
+  </Card>
+  <Card title="Requirements" icon="microchip" href="/requirements">
+    Check GPU, driver, and Minecraft version requirements before installing.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration/profiles">
+    Tune quality profiles and hundreds of individual settings to your hardware.
+  </Card>
+  <Card title="PBR Resource Packs" icon="palette" href="/guides/pbr-resource-packs">
+    Unlock the full visual potential of Alpha Piscium with a PBR resource pack.
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## Key Features
+
+<CardGroup cols={3}>
+  <Card title="Global Illumination" icon="sun" href="/reference/techniques">
+    ReSTIR-based screen-space GI with ReBLUR denoising for accurate indirect lighting and color bleeding.
+  </Card>
+  <Card title="Volumetric Atmosphere" icon="cloud" href="/configuration/atmosphere">
+    Physically accurate sky using the Unreal Engine Sky Atmosphere technique with epipolar light shafts.
+  </Card>
+  <Card title="Volumetric Clouds" icon="cloud-sun" href="/configuration/clouds">
+    Real-time cumulus and cirrus clouds rendered with the Nubis volumetric cloud technique.
+  </Card>
+  <Card title="Adaptive Shadows" icon="eclipse" href="/configuration/shadows">
+    Rectilinear Texture Warping Shadow Mapping (RTWSM) with PCSS soft shadow edges.
+  </Card>
+  <Card title="PBR Materials" icon="gem" href="/configuration/materials">
+    LabPBR-compatible physically-based rendering with normal mapping, specular, and subsurface scattering.
+  </Card>
+  <Card title="Post Processing" icon="camera" href="/configuration/post-processing">
+    Depth of field, bloom, tone mapping, Purkinje effect, and full color management.
+  </Card>
+</CardGroup>
+
+## Get Started
+
+<Steps>
+  <Step title="Check Requirements">
+    Verify your GPU and driver are supported. Alpha Piscium requires a modern NVIDIA or AMD GPU with an up-to-date driver. Intel GPUs are not supported.
+  </Step>
+  <Step title="Install Iris">
+    Download [Iris](https://www.irisshaders.dev/download) version 1.7 or higher and install it as a Minecraft mod.
+  </Step>
+  <Step title="Download Alpha Piscium">
+    Get the latest release from [Modrinth](https://modrinth.com/shader/alpha-piscium) or [GitHub Releases](https://github.com/Luna5ama/Alpha-Piscium/releases).
+  </Step>
+  <Step title="Install and Enable">
+    Place the downloaded ZIP into your `.minecraft/shaderpacks` folder, then select it in **Options → Video Settings → Shader Packs**.
+  </Step>
+</Steps>
+
+<Note>
+  Alpha Piscium works best with a PBR resource pack. Without one, some lighting features like night-time block light will appear dark. See the [PBR Resource Packs guide](/guides/pbr-resource-packs) for recommendations.
+</Note>
